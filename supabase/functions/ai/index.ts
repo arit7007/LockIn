@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type"
 };
 
-const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
+const DEFAULT_MODEL = "gpt-5.4-mini";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -24,9 +24,9 @@ Deno.serve(async (req) => {
     return json({ error: "Unauthorized." }, 401);
   }
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const apiKey = Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) {
-    return json({ error: "Server missing ANTHROPIC_API_KEY." }, 500);
+    return json({ error: "Server missing OPENAI_API_KEY." }, 500);
   }
 
   let body;
@@ -41,27 +41,24 @@ Deno.serve(async (req) => {
     return json({ error: "Missing prompt." }, 400);
   }
 
-  const content = [];
+  const content: Record<string, unknown>[] = [{ type: "input_text", text: prompt }];
   if (body?.image?.data && body?.image?.mediaType) {
-    content.push({
-      type: "image",
-      source: { type: "base64", media_type: body.image.mediaType, data: body.image.data }
+    content.unshift({
+      type: "input_image",
+      image_url: `data:${body.image.mediaType};base64,${body.image.data}`
     });
   }
-  content.push({ type: "text", text: prompt });
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
+        Authorization: `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1800,
-        messages: [{ role: "user", content }]
+        model: Deno.env.get("OPENAI_MODEL") || DEFAULT_MODEL,
+        input: [{ role: "user", content }]
       })
     });
 
@@ -70,9 +67,7 @@ Deno.serve(async (req) => {
       return json({ error: data?.error?.message || "AI request failed." }, res.status);
     }
 
-    const text = Array.isArray(data?.content)
-      ? data.content.map((c) => (c && typeof c.text === "string" ? c.text : "")).join("")
-      : "";
+    const text = extractOutputText(data);
     if (!text) {
       return json({ error: "No text returned by the model." }, 502);
     }
@@ -82,6 +77,22 @@ Deno.serve(async (req) => {
     return json({ error: err instanceof Error ? err.message : "Unexpected server error." }, 500);
   }
 });
+
+function extractOutputText(data: any): string {
+  if (typeof data?.output_text === "string" && data.output_text.trim()) {
+    return data.output_text;
+  }
+
+  const items = Array.isArray(data?.output) ? data.output : [];
+  const parts: string[] = [];
+  items.forEach((item: any) => {
+    if (item?.type !== "message" || !Array.isArray(item?.content)) return;
+    item.content.forEach((c: any) => {
+      if (c?.type === "output_text" && typeof c.text === "string") parts.push(c.text);
+    });
+  });
+  return parts.join("\n").trim();
+}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
