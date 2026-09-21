@@ -13,12 +13,12 @@ function blankState() {
   return {
     name: '', level: 'High school', classes: [], prefs: {},
     plans_made: 0, reels_answered: 0, reels_correct: 0,
-    streak: 0, last_active: null, daily: {}, onboarded: false
+    streak: 0, last_active: null, daily: {}, topic_mastery: {}, onboarded: false
   };
 }
 
 function dbRowToClass(row) {
-  return { id: row.id, name: row.name, difficulty: row.difficulty || 'medium', nextTest: row.next_test || '' };
+  return { id: row.id, name: row.name, difficulty: row.difficulty || 'medium', nextTest: row.next_test || '', context: row.context || '' };
 }
 
 function buildPills(container) {
@@ -102,7 +102,8 @@ async function loadProfile() {
     Object.assign(state, {
       name: data.name || '', level: data.level || 'High school', prefs: data.prefs || {},
       plans_made: data.plans_made || 0, reels_answered: data.reels_answered || 0, reels_correct: data.reels_correct || 0,
-      streak: data.streak || 0, last_active: data.last_active || null, daily: data.daily || {}, onboarded: !!data.onboarded
+      streak: data.streak || 0, last_active: data.last_active || null, daily: data.daily || {},
+      topic_mastery: data.topic_mastery || {}, onboarded: !!data.onboarded
     });
   } else {
     await db.from('profiles').insert({ id: user.id });
@@ -122,7 +123,8 @@ function save() {
     const row = {
       id: user.id, name: state.name, level: state.level, prefs: state.prefs,
       plans_made: state.plans_made, reels_answered: state.reels_answered, reels_correct: state.reels_correct,
-      streak: state.streak, last_active: state.last_active, daily: state.daily, onboarded: state.onboarded,
+      streak: state.streak, last_active: state.last_active, daily: state.daily,
+      topic_mastery: state.topic_mastery, onboarded: state.onboarded,
       updated_at: new Date().toISOString()
     };
     const { error } = await db.from('profiles').upsert(row);
@@ -186,10 +188,20 @@ function renderObClasses() {
   box.innerHTML = obClasses.map(c => classRowHTML(c)).join('') || '<p class="hint">No classes added yet.</p>';
   box.querySelectorAll('.rm').forEach(b => b.addEventListener('click', () => { obClasses = obClasses.filter(x => x.id !== b.dataset.id); renderObClasses(); }));
 }
-function classRowHTML(c) {
+function classRowHTML(c, opts) {
+  opts = opts || {};
   const bcls = c.difficulty === 'hard' ? 'b-hard' : c.difficulty === 'easy' ? 'b-easy' : 'b-med';
   const meta = c.nextTest ? ('Test: ' + c.nextTest) : '';
-  return '<div class="classitem"><div class="grow"><span class="cname">' + esc(c.name) + '</span><span class="badge ' + bcls + '">' + esc(c.difficulty || 'medium') + '</span><div class="cmeta">' + esc(meta) + '</div></div><button class="rm" data-id="' + c.id + '" title="Remove">&times;</button></div>';
+  let html = '<div class="classitem"><div class="grow"><span class="cname">' + esc(c.name) + '</span><span class="badge ' + bcls + '">' + esc(c.difficulty || 'medium') + '</span><div class="cmeta">' + esc(meta) + '</div></div>';
+  if (opts.editable) html += '<button class="notes-toggle" data-id="' + c.id + '" title="Add notes">&#128221;</button>';
+  html += '<button class="rm" data-id="' + c.id + '" title="Remove">&times;</button></div>';
+  if (opts.editable) {
+    html += '<div class="class-notes" id="classNotes-' + c.id + '" style="display:none">'
+      + '<textarea id="classNotesInput-' + c.id + '" rows="3" placeholder="Paste your syllabus, notes, or anything Lock In should know about this class">' + esc(c.context || '') + '</textarea>'
+      + '<button class="btn ghost sm save-notes" data-id="' + c.id + '">Save notes</button>'
+      + '</div>';
+  }
+  return html;
 }
 document.getElementById('addClass').addEventListener('click', () => {
   const name = document.getElementById('cName').value.trim();
@@ -263,10 +275,27 @@ function showApp() { gate.style.display = 'none'; onboard.style.display = 'none'
 document.getElementById('editSetup').addEventListener('click', e => { e.preventDefault(); startOnboarding(); });
 
 function classNames() { return state.classes.map(c => c.name); }
-function classContext(list) { return (list || state.classes).map(c => c.name + ' (' + (c.difficulty || 'medium') + (c.nextTest ? ', next test ' + c.nextTest : '') + ')').join('; '); }
+function classContext(list) {
+  return (list || state.classes).map(c => {
+    let line = c.name + ' (' + (c.difficulty || 'medium') + (c.nextTest ? ', next test ' + c.nextTest : '') + ')';
+    if (c.context) line += ' — notes: ' + c.context.slice(0, 800);
+    return line;
+  }).join('; ');
+}
+function weakTopicsSummary() {
+  const mastery = state.topic_mastery || {};
+  const weak = Object.keys(mastery)
+    .map(topic => ({ topic, ...mastery[topic] }))
+    .filter(t => (t.total || 0) >= 2 && (t.correct || 0) / t.total < 0.6)
+    .sort((a, b) => (a.correct / a.total) - (b.correct / b.total))
+    .slice(0, 5);
+  if (!weak.length) return '';
+  return weak.map(t => t.topic + ' (' + Math.round(100 * t.correct / t.total) + '% correct)').join(', ');
+}
 function prefsContext() {
   const p = state.prefs || {};
-  return 'Focuses best: ' + (p.focus || 'n/a') + '. Attention span: ' + (p.attention || 'n/a') + '. Likes methods: ' + ((p.methods || []).join(', ') || 'n/a') + '. Biggest distractions: ' + ((p.distraction || []).join(', ') || 'n/a') + '. Motivated by: ' + ((p.motivation || []).join(', ') || 'n/a') + '. Preferred session length: ' + (p.session || 'n/a') + '. Goal: ' + (p.goal || 'n/a') + '.';
+  const weak = weakTopicsSummary();
+  return 'Focuses best: ' + (p.focus || 'n/a') + '. Attention span: ' + (p.attention || 'n/a') + '. Likes methods: ' + ((p.methods || []).join(', ') || 'n/a') + '. Biggest distractions: ' + ((p.distraction || []).join(', ') || 'n/a') + '. Motivated by: ' + ((p.motivation || []).join(', ') || 'n/a') + '. Preferred session length: ' + (p.session || 'n/a') + '. Goal: ' + (p.goal || 'n/a') + '.' + (weak ? ' Known weak topics from past reels (prioritize these): ' + weak + '.' : '');
 }
 function renderHome() {
   document.getElementById('greeting').textContent = state.name ? ('Ready to lock in, ' + esc(state.name) + '?') : 'Ready to lock in?';
@@ -277,12 +306,27 @@ function renderHome() {
 }
 function renderHomeClasses() {
   const box = document.getElementById('homeClassList');
-  box.innerHTML = state.classes.map(c => classRowHTML(c)).join('') || '<p class="hint">No classes yet - add one below.</p>';
+  box.innerHTML = state.classes.map(c => classRowHTML(c, { editable: true })).join('') || '<p class="hint">No classes yet - add one below.</p>';
   box.querySelectorAll('.rm').forEach(b => b.addEventListener('click', async () => {
     const { error } = await db.from('classes').delete().eq('id', b.dataset.id);
     if (error) { console.warn(error); return; }
     state.classes = state.classes.filter(x => x.id !== b.dataset.id);
     renderHome();
+  }));
+  box.querySelectorAll('.notes-toggle').forEach(b => b.addEventListener('click', () => {
+    const panel = document.getElementById('classNotes-' + b.dataset.id);
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  }));
+  box.querySelectorAll('.save-notes').forEach(b => b.addEventListener('click', async () => {
+    const id = b.dataset.id;
+    const context = document.getElementById('classNotesInput-' + id).value.trim();
+    const old = b.textContent; b.textContent = 'Saving...'; b.disabled = true;
+    const { error } = await db.from('classes').update({ context: context || null }).eq('id', id);
+    b.disabled = false;
+    if (error) { console.warn(error); b.textContent = 'Error'; setTimeout(() => { b.textContent = old; }, 1500); return; }
+    const cls = state.classes.find(x => x.id === id);
+    if (cls) cls.context = context;
+    b.textContent = 'Saved'; setTimeout(() => { b.textContent = old; }, 1200);
   }));
 }
 document.getElementById('hAddClass').addEventListener('click', async () => {
@@ -409,14 +453,15 @@ document.getElementById('genPlan').addEventListener('click', async () => {
   const picked = [...document.querySelectorAll('#planClassPick input:checked')].map(i => i.value);
   const chosen = state.classes.filter(c => picked.includes(c.id));
   const extra = document.getElementById('planDeadlines').value.trim();
+  const stuck = document.getElementById('planStuck').value.trim();
   if (!chosen.length && !extra) { err.innerHTML = '<div class="err">Select at least one class (or add extra deadlines).</div>'; return; }
   const daysStr = document.getElementById('planDays').value, hoursStr = document.getElementById('planHours').value;
   const daysCount = Number(daysStr);
   const hoursPerDay = parseInt(hoursStr, 10) || 2;
-  const input = { class_ids: picked, days: daysCount, hours_per_day: hoursPerDay, extra_notes: extra };
+  const input = { class_ids: picked, days: daysCount, hours_per_day: hoursPerDay, extra_notes: extra, stuck_on: stuck };
   btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Building...';
   out.innerHTML = '<div class="card"><div class="loading"><span class="spinner"></span> Designing a plan around your classes and study style...</div></div>';
-  const prompt = 'You are Lock In, an AI study coach that helps students beat procrastination with plans tailored to how they actually study. Build a personalized ' + daysStr + '-day study plan.\nSTUDENT: ' + (state.name || 'a student') + ' (' + state.level + ').\nCLASSES TO COVER: ' + (classContext(chosen) || 'general study') + '.\nOTHER DEADLINES: ' + (extra || 'none') + '.\nSTUDY TIME PER DAY: ' + hoursStr + '.\nSTUDY PROFILE: ' + prefsContext() + '\nUse their profile: schedule harder/nearer-deadline classes during their best focus time, size each work block near their attention span and preferred session length, and prefer the study methods they like. Directly counter their biggest distraction and lean on what motivates them. Keep tasks small, specific and achievable.\nRespond ONLY with valid JSON, no markdown:\n{"summary":"one motivating sentence","days":[{"day":"Day 1 (label)","focus":"theme","blocks":[{"time":"25 min","subject":"Biology","task":"specific task","technique":"Active recall"}]}],"tips":["tip","tip","tip"]}';
+  const prompt = 'You are Lock In, an AI study coach that helps students beat procrastination with plans tailored to how they actually study. Build a personalized ' + daysStr + '-day study plan.\nSTUDENT: ' + (state.name || 'a student') + ' (' + state.level + ').\nCLASSES TO COVER (including any notes/syllabus content they provided): ' + (classContext(chosen) || 'general study') + '.\nOTHER DEADLINES: ' + (extra || 'none') + '.\nWHAT THEY SAY THEY ARE STUCK ON RIGHT NOW: ' + (stuck || 'nothing specified') + '.\nSTUDY TIME PER DAY: ' + hoursStr + '.\nSTUDY PROFILE: ' + prefsContext() + '\nUse their profile: schedule harder/nearer-deadline classes during their best focus time, size each work block near their attention span and preferred session length, and prefer the study methods they like. Directly counter their biggest distraction and lean on what motivates them. If they told you what they are stuck on or gave class notes, target that specifically instead of generic review. Keep tasks small, specific and achievable.\nRespond ONLY with valid JSON, no markdown:\n{"summary":"one motivating sentence","days":[{"day":"Day 1 (label)","focus":"theme","blocks":[{"time":"25 min","subject":"Biology","task":"specific task","technique":"Active recall"}]}],"tips":["tip","tip","tip"]}';
   let plan = null, source = 'ai';
   try {
     const raw = await askAI(prompt);
@@ -472,7 +517,8 @@ document.getElementById('genReels').addEventListener('click', async () => {
   if (!scope) scope = reelChoice === '__mix__' ? classNames().join(', ') : reelChoice;
   if (!scope) { err.innerHTML = '<div class="err">Pick a class or type a topic.</div>'; return; }
   btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Loading...';
-  const prompt = 'You are Lock In, generating a feed of bite-sized study reels for ' + (state.name || 'a student') + ' (' + state.level + '). Topic(s): ' + scope + '. They like these study methods: ' + ((state.prefs.methods || []).join(', ') || 'quizzing') + '. Create 6 engaging reels mixing multiple-choice (4 options) and a couple flashcards. Punchy, social-media friendly, varied difficulty, short memorable explanations. Respond ONLY with valid JSON array of 6 objects:\n[{"type":"mcq","topic":"label","question":"q","options":["A","B","C","D"],"answerIndex":0,"explanation":"why"},{"type":"flash","topic":"label","question":"term","answer":"ans","explanation":"context"}]';
+  const weak = weakTopicsSummary();
+  const prompt = 'You are Lock In, generating a feed of bite-sized study reels for ' + (state.name || 'a student') + ' (' + state.level + '). Topic(s): ' + scope + '. They like these study methods: ' + ((state.prefs.methods || []).join(', ') || 'quizzing') + '.' + (weak ? ' They have historically struggled with: ' + weak + ' — weight questions toward these when relevant to the chosen topic(s).' : '') + ' Create 6 engaging reels mixing multiple-choice (4 options) and a couple flashcards. Punchy, social-media friendly, varied difficulty, short memorable explanations. Respond ONLY with valid JSON array of 6 objects:\n[{"type":"mcq","topic":"label","question":"q","options":["A","B","C","D"],"answerIndex":0,"explanation":"why"},{"type":"flash","topic":"label","question":"term","answer":"ans","explanation":"context"}]';
   try {
     const raw = await askAI(prompt);
     let cards = extractJSON(raw);
@@ -497,7 +543,7 @@ function buildReels(cards) {
     if (c.type === 'flash') {
       reel.innerHTML = '<div class="tag">' + esc(c.topic || 'Flashcard') + ' - Flashcard</div><div class="q">' + esc(c.question) + '<div style="font-size:13px;font-weight:500;opacity:.7;margin-top:10px">Tap to reveal</div></div><div class="flash-answer"><b>' + esc(c.answer || '') + '</b>' + (c.explanation ? '<br><span style="opacity:.85;font-size:14px;font-weight:400">' + esc(c.explanation) + '</span>' : '') + '</div><div class="swipe">Swipe up for next</div>';
       const q = reel.querySelector('.q'), ans = reel.querySelector('.flash-answer');
-      q.addEventListener('click', () => { if (ans.classList.contains('show')) return; ans.classList.add('show'); recordReel(true); });
+      q.addEventListener('click', () => { if (ans.classList.contains('show')) return; ans.classList.add('show'); recordReel(true, c.topic); });
     } else {
       const opts = (c.options || []).map((o, idx) => '<button class="opt" data-i="' + idx + '">' + esc(o) + '</button>').join('');
       reel.innerHTML = '<div class="tag">' + esc(c.topic || 'Question') + '</div><div class="q">' + esc(c.question) + '</div><div class="opts">' + opts + '</div><div class="explain"></div><div class="swipe">Swipe up for next</div>';
@@ -509,17 +555,22 @@ function buildReels(cards) {
         if (!ok) b.classList.add('wrong');
         explain.innerHTML = (ok ? 'Correct! ' : 'Not quite. ') + (c.explanation ? esc(c.explanation) : '');
         explain.classList.add('show');
-        recordReel(ok);
+        recordReel(ok, c.topic);
       }));
     }
     track.appendChild(reel);
   });
 }
-function recordReel(correct) {
+function recordReel(correct, topic) {
   state.reels_answered = (state.reels_answered || 0) + 1;
   if (correct) state.reels_correct = (state.reels_correct || 0) + 1;
   const t = todayStr();
   state.daily[t] = (state.daily[t] || 0) + 1;
+  if (topic) {
+    if (!state.topic_mastery) state.topic_mastery = {};
+    const prev = state.topic_mastery[topic] || { correct: 0, total: 0 };
+    state.topic_mastery[topic] = { correct: prev.correct + (correct ? 1 : 0), total: prev.total + 1 };
+  }
   save();
 }
 

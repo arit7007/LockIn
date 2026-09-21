@@ -40,6 +40,9 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--green-so
 .classitem .cname{font-weight:700;color:var(--green-dark)}.classitem .cmeta{font-size:12px;color:var(--muted)}
 .classitem .grow{flex:1;min-width:0}
 .classitem .rm{background:transparent;border:none;color:var(--accent);cursor:pointer;font-size:18px;font-weight:700;line-height:1}
+.classitem .notes-toggle{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1}
+.class-notes{margin:-2px 0 8px;padding:10px 12px;background:#fff;border:1px solid var(--line);border-radius:0 0 12px 12px}
+.class-notes textarea{margin-bottom:8px}
 .badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px}
 .b-easy{background:#e6f4ea;color:#1e7a3e}.b-med{background:#fbf1e0;color:#a86b17}.b-hard{background:#fbe9e6;color:#a83221}
 .checkrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:8px;cursor:pointer}

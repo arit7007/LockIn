@@ -13,6 +13,7 @@ create table if not exists public.profiles (
   plans_made integer not null default 0,
   reels_answered integer not null default 0,
   reels_correct integer not null default 0,
+  topic_mastery jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -56,6 +57,7 @@ create table if not exists public.classes (
   name text not null,
   difficulty text not null default 'medium' check (difficulty in ('easy', 'medium', 'hard')),
   next_test date,
+  context text,
   created_at timestamptz not null default now()
 );
 
