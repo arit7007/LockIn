@@ -104,6 +104,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--green-so
 .progress .seg{flex:1;height:6px;border-radius:999px;background:var(--line)}.progress .seg.on{background:var(--green)}
 .stepnum{font-size:12px;font-weight:700;color:var(--green-soft);letter-spacing:1px;text-transform:uppercase}
 .wstep{display:none}.wstep.active{display:block;animation:fade .25s}
+.more-prefs{display:none;margin-top:6px}.more-prefs.open{display:block;animation:fade .2s}
 .wnav{display:flex;gap:10px;margin-top:22px}.wnav .btn{flex:1;justify-content:center}
 #app{display:none}
 @media(max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}.features{grid-template-columns:1fr}.brand h1{font-size:20px;letter-spacing:4px}.summaryGrid{grid-template-columns:1fr}}

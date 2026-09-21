@@ -163,8 +163,17 @@ function startOnboarding() {
   setPills(document.getElementById('qMotivation'), p.motivation || []);
   setPill(document.getElementById('qSession'), p.session || '');
   document.getElementById('qGoal').value = p.goal || '';
+  const hasExtraPrefs = !!(p.attention || p.session || (p.distraction || []).length || (p.motivation || []).length);
+  setMorePrefsOpen(hasExtraPrefs);
   gotoStep(1); window.scrollTo({ top: 0 });
 }
+function setMorePrefsOpen(open) {
+  document.getElementById('morePrefs').classList.toggle('open', open);
+  document.getElementById('toggleMorePrefs').textContent = open ? '− Hide extra questions' : '+ Add more about how you study (optional)';
+}
+document.getElementById('toggleMorePrefs').addEventListener('click', () => {
+  setMorePrefsOpen(!document.getElementById('morePrefs').classList.contains('open'));
+});
 function gotoStep(n) {
   document.querySelectorAll('.wstep').forEach(s => s.classList.toggle('active', +s.dataset.step === n));
   document.querySelectorAll('.progress .seg').forEach((s, i) => s.classList.toggle('on', i < n));
@@ -191,6 +200,37 @@ document.getElementById('addClass').addEventListener('click', () => {
   renderObClasses();
 });
 document.getElementById('cName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addClass').click(); } });
+document.getElementById('scanScheduleBtn').addEventListener('click', () => document.getElementById('scheduleFile').click());
+document.getElementById('scheduleFile').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const status = document.getElementById('scanStatus');
+  status.innerHTML = '<div class="loading"><span class="spinner"></span> Reading your schedule...</div>';
+  try {
+    const base64 = await readFileAsBase64(file);
+    const prompt = 'You are extracting a list of class or course names from a photo of a student\'s class schedule, school portal screenshot, or printed timetable. Identify each distinct class or course (e.g. "AP Biology", "Algebra II", "World History"). Do not include room numbers, teacher names, periods, or times as separate entries. Respond ONLY with valid JSON, no markdown: {"classes":[{"name":"string"}]}. If you cannot confidently identify any classes, return {"classes":[]}.';
+    const raw = await askAI(prompt, { data: base64, mediaType: file.type || 'image/jpeg' });
+    const parsed = extractJSON(raw);
+    const found = Array.isArray(parsed && parsed.classes) ? parsed.classes.filter(c => c && c.name) : [];
+    if (!found.length) { status.innerHTML = '<div class="err">Couldn\'t find any classes in that image. Try a clearer photo, or add them manually below.</div>'; return; }
+    const existingNames = new Set(obClasses.map(c => c.name.toLowerCase()));
+    let added = 0;
+    found.forEach(c => {
+      const name = String(c.name).trim();
+      if (!name || existingNames.has(name.toLowerCase())) return;
+      obClasses.push({ id: uid(), name, difficulty: 'medium', nextTest: '' });
+      existingNames.add(name.toLowerCase());
+      added++;
+    });
+    renderObClasses();
+    status.innerHTML = added
+      ? '<div class="ok">Added ' + added + ' class' + (added === 1 ? '' : 'es') + ' from your schedule. Check the difficulty for each below.</div>'
+      : '<div class="err">Those classes are already in your list.</div>';
+  } catch (err) {
+    status.innerHTML = '<div class="err">' + esc(err.message || 'Could not read that schedule. Try again or add classes manually.') + '</div>';
+  }
+});
 document.getElementById('s1next').addEventListener('click', () => {
   const name = document.getElementById('oName').value.trim();
   if (!name) { alert('Please enter your name.'); return; }
@@ -261,12 +301,21 @@ function renderSummary() {
   document.getElementById('profileSummary').innerHTML = items.filter(x => x[1]).map(x => '<div><div class="k">' + esc(x[0]) + '</div><div class="v">' + esc(x[1]) + '</div></div>').join('');
 }
 
-async function askAI(prompt) {
+async function askAI(prompt, image) {
   if (!db) throw new Error('AI is not set up.');
-  const { data, error } = await db.functions.invoke('ai', { body: { prompt } });
+  const body = image ? { prompt, image } : { prompt };
+  const { data, error } = await db.functions.invoke('ai', { body });
   if (error) throw new Error(error.message || 'AI request failed.');
   if (!data || typeof data.text !== 'string') throw new Error((data && data.error) || 'AI response was missing text.');
   return data.text;
+}
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.readAsDataURL(file);
+  });
 }
 function extractJSON(txt) {
   if (!txt) return null;
@@ -303,6 +352,57 @@ function renderPlanPicker() {
   if (!state.classes.length) { box.innerHTML = '<p class="hint">Add classes on the Home tab first.</p>'; return; }
   box.innerHTML = state.classes.map(c => '<label class="checkrow"><input type="checkbox" value="' + c.id + '" checked><span class="nm">' + esc(c.name) + '</span> <span class="badge ' + (c.difficulty === 'hard' ? 'b-hard' : c.difficulty === 'easy' ? 'b-easy' : 'b-med') + '">' + esc(c.difficulty || 'medium') + '</span>' + (c.nextTest ? '<span class="cmeta" style="margin-left:auto">test ' + esc(c.nextTest) + '</span>' : '') + '</label>').join('');
 }
+function buildFallbackPlan(chosen, extra, daysCount, hoursPerDay) {
+  const classes = chosen.length ? chosen : [{ name: 'your classes', difficulty: 'medium', nextTest: '' }];
+  const rank = { hard: 0, medium: 1, easy: 2 };
+  const sorted = [...classes].sort((a, b) => {
+    const diff = (rank[a.difficulty] ?? 1) - (rank[b.difficulty] ?? 1);
+    if (diff !== 0) return diff;
+    if (a.nextTest && b.nextTest) return a.nextTest < b.nextTest ? -1 : 1;
+    if (a.nextTest) return -1;
+    if (b.nextTest) return 1;
+    return 0;
+  });
+  const sessionsPerDay = hoursPerDay >= 3 ? 3 : hoursPerDay === 2 ? 2 : 1;
+  const minutesPerBlock = hoursPerDay ? Math.max(25, Math.round((hoursPerDay * 60) / sessionsPerDay / 5) * 5) : 45;
+  const phases = ['Foundation', 'Practice', 'Review'];
+  const days = [];
+  for (let i = 0; i < daysCount; i++) {
+    const date = new Date(); date.setDate(date.getDate() + i);
+    const label = date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+    const progress = daysCount === 1 ? 1 : i / (daysCount - 1);
+    const phase = progress > 0.66 ? phases[2] : progress > 0.33 ? phases[1] : phases[0];
+    const blocks = [];
+    for (let b = 0; b < sessionsPerDay; b++) {
+      const cls = sorted[(i * sessionsPerDay + b) % sorted.length];
+      blocks.push({
+        time: minutesPerBlock + ' min',
+        subject: cls.name,
+        task: phase === 'Review'
+          ? 'Timed practice on ' + cls.name + ', mark every mistake.'
+          : phase === 'Practice'
+            ? 'Active practice problems on ' + cls.name + ' instead of rereading notes.'
+            : 'Build summary notes or flashcards for ' + cls.name + '.',
+        technique: phase === 'Review' ? 'Practice test' : phase === 'Practice' ? 'Active recall' : 'Note-building'
+      });
+    }
+    days.push({ day: label, focus: phase + ' phase', blocks });
+  }
+  return {
+    summary: 'A steady ' + daysCount + '-day plan across ' + sorted.length + ' class' + (sorted.length === 1 ? '' : 'es') + (extra ? '. Also keeping in mind: ' + extra + '.' : '.'),
+    days,
+    tips: [
+      'Start with the easiest step in each block so the session has a quick win.',
+      'Protect the first five minutes of a block before motivation catches up.',
+      'Finish each block with a 2-minute self-check: what still feels shaky?'
+    ]
+  };
+}
+async function saveStudyPlan(input, plan, source) {
+  if (!user || !db) return;
+  const { error } = await db.from('study_plans').insert({ user_id: user.id, input, plan, source });
+  if (error) console.warn('saveStudyPlan error', error);
+}
 document.getElementById('genPlan').addEventListener('click', async () => {
   const btn = document.getElementById('genPlan'), out = document.getElementById('planOut'), err = document.getElementById('planErr');
   err.innerHTML = '';
@@ -310,26 +410,35 @@ document.getElementById('genPlan').addEventListener('click', async () => {
   const chosen = state.classes.filter(c => picked.includes(c.id));
   const extra = document.getElementById('planDeadlines').value.trim();
   if (!chosen.length && !extra) { err.innerHTML = '<div class="err">Select at least one class (or add extra deadlines).</div>'; return; }
-  const days = document.getElementById('planDays').value, hours = document.getElementById('planHours').value;
+  const daysStr = document.getElementById('planDays').value, hoursStr = document.getElementById('planHours').value;
+  const daysCount = Number(daysStr);
+  const hoursPerDay = parseInt(hoursStr, 10) || 2;
+  const input = { class_ids: picked, days: daysCount, hours_per_day: hoursPerDay, extra_notes: extra };
   btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Building...';
   out.innerHTML = '<div class="card"><div class="loading"><span class="spinner"></span> Designing a plan around your classes and study style...</div></div>';
-  const prompt = 'You are Lock In, an AI study coach that helps students beat procrastination with plans tailored to how they actually study. Build a personalized ' + days + '-day study plan.\nSTUDENT: ' + (state.name || 'a student') + ' (' + state.level + ').\nCLASSES TO COVER: ' + (classContext(chosen) || 'general study') + '.\nOTHER DEADLINES: ' + (extra || 'none') + '.\nSTUDY TIME PER DAY: ' + hours + '.\nSTUDY PROFILE: ' + prefsContext() + '\nUse their profile: schedule harder/nearer-deadline classes during their best focus time, size each work block near their attention span and preferred session length, and prefer the study methods they like. Directly counter their biggest distraction and lean on what motivates them. Keep tasks small, specific and achievable.\nRespond ONLY with valid JSON, no markdown:\n{"summary":"one motivating sentence","days":[{"day":"Day 1 (label)","focus":"theme","blocks":[{"time":"25 min","subject":"Biology","task":"specific task","technique":"Active recall"}]}],"tips":["tip","tip","tip"]}';
+  const prompt = 'You are Lock In, an AI study coach that helps students beat procrastination with plans tailored to how they actually study. Build a personalized ' + daysStr + '-day study plan.\nSTUDENT: ' + (state.name || 'a student') + ' (' + state.level + ').\nCLASSES TO COVER: ' + (classContext(chosen) || 'general study') + '.\nOTHER DEADLINES: ' + (extra || 'none') + '.\nSTUDY TIME PER DAY: ' + hoursStr + '.\nSTUDY PROFILE: ' + prefsContext() + '\nUse their profile: schedule harder/nearer-deadline classes during their best focus time, size each work block near their attention span and preferred session length, and prefer the study methods they like. Directly counter their biggest distraction and lean on what motivates them. Keep tasks small, specific and achievable.\nRespond ONLY with valid JSON, no markdown:\n{"summary":"one motivating sentence","days":[{"day":"Day 1 (label)","focus":"theme","blocks":[{"time":"25 min","subject":"Biology","task":"specific task","technique":"Active recall"}]}],"tips":["tip","tip","tip"]}';
+  let plan = null, source = 'ai';
   try {
     const raw = await askAI(prompt);
-    const plan = extractJSON(raw);
-    if (plan && Array.isArray(plan.days)) renderPlan(plan);
-    else out.innerHTML = '<div class="card"><h2>Your plan</h2><div style="white-space:pre-wrap;font-size:14px">' + esc(raw) + '</div></div>';
+    plan = extractJSON(raw);
+    if (!plan || !Array.isArray(plan.days)) throw new Error('AI response was not a usable plan.');
+  } catch (e) {
+    plan = buildFallbackPlan(chosen, extra, daysCount, hoursPerDay);
+    source = 'fallback';
+  }
+  try {
+    renderPlan(plan, source);
     state.plans_made = (state.plans_made || 0) + 1;
     touchStreak(); save();
     document.getElementById('streakNum').textContent = state.streak || 0;
-  } catch (e) {
-    out.innerHTML = ''; err.innerHTML = '<div class="err">' + esc(e.message) + '</div>';
+    saveStudyPlan(input, plan, source);
   } finally {
     btn.disabled = false; btn.innerHTML = old;
   }
 });
-function renderPlan(plan) {
+function renderPlan(plan, source) {
   let html = '<div class="card"><h2>Your personalized plan</h2>';
+  if (source === 'fallback') html += '<p class="hint">AI is temporarily unavailable — here\'s a plan built from your profile instead.</p>';
   if (plan.summary) html += '<div class="plan-summary">' + esc(plan.summary) + '</div>';
   plan.days.forEach(d => {
     html += '<div class="day"><div class="day-head"><span>' + esc(d.day || 'Day') + '</span><span class="focus">' + esc(d.focus || '') + '</span></div>';

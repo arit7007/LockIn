@@ -44,25 +44,31 @@
       </div>
       <label>Next test / big deadline (optional)</label><input id="cDate" type="date">
       <button class="btn ghost sm" id="addClass" style="margin-top:12px">+ Add class</button>
+      <button type="button" class="btn ghost sm" id="scanScheduleBtn" style="margin-top:12px">&#128247; Scan a schedule instead</button>
+      <input type="file" id="scheduleFile" accept="image/*" capture="environment" style="display:none">
+      <div id="scanStatus"></div>
       <div class="classlist" id="classList"></div><div id="classErr"></div>
       <div class="wnav"><button class="btn ghost" id="s2back">Back</button><button class="btn" id="s2next">Next</button></div>
     </div>
     <div class="wstep" data-step="3">
       <h2 style="color:var(--green);margin:6px 0 2px">How you study</h2>
-      <p class="sub" style="color:var(--muted)">A few quick questions so your plans and reels fit the way you learn.</p>
+      <p class="sub" style="color:var(--muted)">Two quick ones so your plans and reels fit how you learn.</p>
       <label>When do you focus best?</label>
       <div class="opts-wrap" id="qFocus" data-single="Early morning|Afternoon|Evening|Late night"></div>
-      <label>How long can you focus before getting distracted?</label>
-      <div class="opts-wrap" id="qAttention" data-single="~15 min|~25 min|~45 min|60+ min"></div>
       <label>Which study methods do you like? (pick any)</label>
       <div class="opts-wrap" id="qMethods" data-multi="Flashcards|Practice problems|Watching videos|Rereading notes|Teaching someone|Mind maps|Quizzing myself|Group study"></div>
-      <label>What's your biggest distraction? (pick any)</label>
-      <div class="opts-wrap" id="qDistraction" data-multi="Phone / social media|Video games|Feeling tired|Other people|Feeling overwhelmed|Boredom"></div>
-      <label>What motivates you most? (pick any)</label>
-      <div class="opts-wrap" id="qMotivation" data-multi="Good grades|Streaks & progress|Rewards|Competition|Understanding deeply"></div>
-      <label>Preferred study session length</label>
-      <div class="opts-wrap" id="qSession" data-single="Short (20-30 min)|Medium (45-60 min)|Long (90+ min)"></div>
       <label>Your main goal right now (optional)</label><input id="qGoal" placeholder="e.g. Raise my Biology grade to an A before finals">
+      <button type="button" id="toggleMorePrefs" class="btn ghost sm" style="margin-top:14px">+ Add more about how you study (optional)</button>
+      <div id="morePrefs" class="more-prefs">
+        <label>How long can you focus before getting distracted?</label>
+        <div class="opts-wrap" id="qAttention" data-single="~15 min|~25 min|~45 min|60+ min"></div>
+        <label>What's your biggest distraction? (pick any)</label>
+        <div class="opts-wrap" id="qDistraction" data-multi="Phone / social media|Video games|Feeling tired|Other people|Feeling overwhelmed|Boredom"></div>
+        <label>What motivates you most? (pick any)</label>
+        <div class="opts-wrap" id="qMotivation" data-multi="Good grades|Streaks & progress|Rewards|Competition|Understanding deeply"></div>
+        <label>Preferred study session length</label>
+        <div class="opts-wrap" id="qSession" data-single="Short (20-30 min)|Medium (45-60 min)|Long (90+ min)"></div>
+      </div>
       <div id="obErr"></div>
       <div class="wnav"><button class="btn ghost" id="s3back">Back</button><button class="btn" id="finishOb">Finish setup</button></div>
     </div>
