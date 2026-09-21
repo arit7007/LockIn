@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lock In — Unlock Your Best Self</title>
+<script>
+const CONFIG = {
+  SUPABASE_URL:      "https://zbbnjebnzwhhflhgpsqu.supabase.co",
+  SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpiYm5qZWJuendoaGZsaGdwc3F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NTQyMTAsImV4cCI6MjA5ODQzMDIxMH0.fGtVgagQUR1K4TbNdsyFX60-lovmYn196HrQRDpEg1s",
+  ANTHROPIC_API_KEY: "",
+  AI_MODEL: "claude-haiku-4-5-20251001"
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+<style>
+:root{color-scheme:light;--bg:#e8ebe0;--card:#f4f6ee;--card2:#eef1e6;--green:#1e5631;--green-dark:#14421f;--green-soft:#3a7d4d;--text:#173d22;--muted:#5f7059;--line:#d3dac8;--accent:#c7402f;--shadow:0 6px 22px rgba(20,66,31,.10)}
+*{box-sizing:border-box}html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:20px 18px 90px}
+.topbar{display:flex;align-items:center;gap:12px;padding:6px 2px 18px}
+.logo{width:44px;height:44px;flex:0 0 auto}
+.brand h1{font-size:26px;letter-spacing:6px;margin:0;color:var(--green);font-weight:800;text-transform:uppercase}
+.brand p{margin:2px 0 0;font-size:12px;color:var(--muted);letter-spacing:1px}
+.userbox{margin-left:auto;display:flex;align-items:center;gap:10px}
+.streakpill{background:var(--green);color:#fff;border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+.usermail{font-size:12px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.logout{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;font-weight:600}
+.logout:hover{border-color:var(--green);color:var(--green)}
+.tabs{display:flex;gap:6px;background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:6px;margin-bottom:20px;position:sticky;top:10px;z-index:20}
+.tab{flex:1;text-align:center;padding:10px 6px;border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;color:var(--muted);border:none;background:transparent;transition:.15s}
+.tab:hover{color:var(--green)}
+.tab.active{background:var(--green);color:#fff;box-shadow:var(--shadow)}
+.panel{display:none;animation:fade .25s ease}.panel.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);margin-bottom:16px}
+.card h2{margin:0 0 4px;color:var(--green);font-size:20px}.card .sub{color:var(--muted);font-size:14px;margin:0 0 16px}
+label{display:block;font-size:13px;font-weight:700;color:var(--green-dark);margin:14px 0 5px}
+input,textarea,select{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;font:inherit;color:var(--text);resize:vertical}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--green-soft);box-shadow:0 0 0 3px rgba(58,125,77,.15)}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>div{flex:1;min-width:140px}
+.hint{font-size:12px;color:var(--muted);margin-top:4px}
+.btn{background:var(--green);color:#fff;border:none;border-radius:11px;padding:13px 20px;font-size:15px;font-weight:700;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{background:var(--green-dark)}.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--green);border:1.5px solid var(--green)}.btn.ghost:hover{background:rgba(30,86,49,.08)}
+.btn.block{width:100%;justify-content:center;margin-top:18px}.btn.sm{padding:9px 14px;font-size:13px}
+.spinner{width:16px;height:16px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading{display:flex;align-items:center;gap:10px;color:var(--muted);padding:18px;font-size:14px}
+.loading .spinner{border-color:rgba(30,86,49,.25);border-top-color:var(--green)}
+.opts-wrap{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.pill{border:1.5px solid var(--line);background:#fff;color:var(--text);border-radius:999px;padding:9px 15px;font-size:14px;font-weight:600;cursor:pointer;transition:.12s}
+.pill:hover{border-color:var(--green-soft)}.pill.on{background:var(--green);color:#fff;border-color:var(--green)}
+.classlist{margin-top:12px;display:flex;flex-direction:column;gap:8px}
+.classitem{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.classitem .cname{font-weight:700;color:var(--green-dark)}.classitem .cmeta{font-size:12px;color:var(--muted)}
+.classitem .grow{flex:1;min-width:0}
+.classitem .rm{background:transparent;border:none;color:var(--accent);cursor:pointer;font-size:18px;font-weight:700;line-height:1}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;margin-left:6px}
+.b-easy{background:#e6f4ea;color:#1e7a3e}.b-med{background:#fbf1e0;color:#a86b17}.b-hard{background:#fbe9e6;color:#a83221}
+.checkrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:#fff;margin-bottom:8px;cursor:pointer}
+.checkrow input{width:auto;margin:0}.checkrow .nm{font-weight:600}
+.plan-summary{background:var(--card2);border-left:4px solid var(--green);padding:14px 16px;border-radius:0 10px 10px 0;margin-bottom:16px;font-size:14px}
+.day{border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden;background:#fff}
+.day-head{background:var(--green);color:#fff;padding:11px 15px;font-weight:700;display:flex;justify-content:space-between;align-items:center;font-size:15px}
+.day-head .focus{font-weight:500;font-size:12px;opacity:.9}
+.block{display:flex;gap:12px;padding:12px 15px;border-top:1px solid var(--line)}
+.block .time{flex:0 0 78px;font-weight:700;color:var(--green);font-size:13px}
+.block .body{flex:1}.block .subj{font-weight:700;font-size:14px}.block .task{font-size:13.5px}
+.block .tech{display:inline-block;margin-top:5px;font-size:11px;background:var(--card2);color:var(--green-dark);padding:3px 9px;border-radius:999px;font-weight:600}
+.tips{margin-top:16px}.tips h3{color:var(--green);font-size:15px;margin:0 0 8px}.tips li{margin-bottom:6px;font-size:14px}
+#reelViewport{position:relative;height:560px;max-height:72vh;border-radius:18px;overflow:hidden;background:var(--green-dark);box-shadow:var(--shadow)}
+#reelTrack{height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none}
+#reelTrack::-webkit-scrollbar{display:none}
+.reel{height:100%;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center;padding:26px 24px;position:relative;color:#fff}
+.reel:nth-child(3n+1){background:linear-gradient(160deg,#1e5631,#14421f)}
+.reel:nth-child(3n+2){background:linear-gradient(160deg,#2c6b41,#173d22)}
+.reel:nth-child(3n+3){background:linear-gradient(160deg,#3a7d4d,#1e5631)}
+.reel .tag{position:absolute;top:20px;left:24px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;opacity:.85;background:rgba(255,255,255,.15);padding:5px 11px;border-radius:999px}
+.reel .q{font-size:22px;font-weight:700;line-height:1.35;margin:20px 0 22px}
+.opt{background:rgba(255,255,255,.12);border:1.5px solid rgba(255,255,255,.35);color:#fff;border-radius:12px;padding:13px 15px;margin-bottom:10px;cursor:pointer;font-size:15px;transition:.15s;text-align:left;width:100%;font-weight:500}
+.opt:hover{background:rgba(255,255,255,.22)}
+.opt.correct{background:#4ccf7e;border-color:#4ccf7e;color:#0b3d1e;font-weight:700}
+.opt.wrong{background:#e2604f;border-color:#e2604f;color:#fff}.opt:disabled{cursor:default}
+.explain{margin-top:14px;background:rgba(255,255,255,.14);border-radius:12px;padding:13px 15px;font-size:14px;line-height:1.5;display:none}
+.explain.show{display:block;animation:fade .2s}
+.reel .swipe{position:absolute;bottom:18px;left:0;right:0;text-align:center;font-size:12px;opacity:.7}
+.reel-flash .q{cursor:pointer}
+.flash-answer{font-size:18px;font-weight:600;background:rgba(255,255,255,.15);border-radius:12px;padding:16px;margin-top:8px;display:none}
+.flash-answer.show{display:block;animation:fade .2s}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center;box-shadow:var(--shadow)}
+.stat .n{font-size:30px;font-weight:800;color:var(--green);line-height:1}.stat .l{font-size:12px;color:var(--muted);margin-top:6px}
+.chart-box{height:230px;position:relative}
+.feedback{background:linear-gradient(160deg,#1e5631,#14421f);color:#fff;border-radius:16px;padding:20px;box-shadow:var(--shadow)}
+.feedback h2{color:#fff;margin:0 0 6px}.feedback .sub{color:rgba(255,255,255,.75)}
+#feedbackText{font-size:15px;line-height:1.6;white-space:pre-wrap}
+.hero{background:linear-gradient(160deg,#1e5631,#14421f);color:#fff;border-radius:20px;padding:30px 26px;box-shadow:var(--shadow);margin-bottom:16px}
+.hero h2{font-size:26px;margin:0 0 8px;color:#fff}.hero p{font-size:15px;opacity:.9;margin:0 0 4px}
+.hero .quote{font-style:italic;font-size:17px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.25)}
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.feat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:var(--shadow);cursor:pointer;transition:.15s}
+.feat:hover{transform:translateY(-3px);border-color:var(--green-soft)}.feat .ic{font-size:26px}
+.feat h3{margin:8px 0 4px;color:var(--green);font-size:16px}.feat p{margin:0;font-size:13px;color:var(--muted)}
+.err{background:#fbe9e6;border:1px solid #e2604f;color:#8f2718;border-radius:10px;padding:12px 14px;font-size:13.5px;margin-top:12px}
+.ok{background:#e6f4ea;border:1px solid #4ccf7e;color:#0b3d1e;border-radius:10px;padding:12px 14px;font-size:13.5px;margin-top:12px}
+.summaryGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.summaryGrid .k{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.summaryGrid .v{font-size:14px;margin-top:2px}
+#gate{max-width:420px;margin:6vh auto;padding:0 18px}
+.authcard{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:30px 26px;box-shadow:var(--shadow)}
+.authhead{text-align:center;margin-bottom:20px}.authhead .logo{width:56px;height:56px}
+.authhead h1{font-size:26px;letter-spacing:6px;margin:10px 0 2px;color:var(--green);font-weight:800;text-transform:uppercase}
+.authhead p{margin:0;font-size:13px;color:var(--muted);font-style:italic}
+.authtabs{display:flex;background:var(--card2);border-radius:10px;padding:4px;margin-bottom:6px}
+.authtabs button{flex:1;border:none;background:transparent;padding:9px;border-radius:8px;font-weight:700;color:var(--muted);cursor:pointer}
+.authtabs button.active{background:#fff;color:var(--green);box-shadow:var(--shadow)}
+#onboard{display:none;max-width:640px;margin:4vh auto;padding:0 18px}
+.progress{display:flex;gap:6px;margin-bottom:16px}
+.progress .seg{flex:1;height:6px;border-radius:999px;background:var(--line)}.progress .seg.on{background:var(--green)}
+.stepnum{font-size:12px;font-weight:700;color:var(--green-soft);letter-spacing:1px;text-transform:uppercase}
+.wstep{display:none}.wstep.active{display:block;animation:fade .25s}
+.wnav{display:flex;gap:10px;margin-top:22px}.wnav .btn{flex:1;justify-content:center}
+#app{display:none}
+@media(max-width:560px){.stats{grid-template-columns:repeat(2,1fr)}.features{grid-template-columns:1fr}.brand h1{font-size:20px;letter-spacing:4px}.summaryGrid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div class="authcard">
+    <div class="authhead">
+      <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M32 8 L58 20 L32 32 L6 20 Z" fill="#173d22"/><path d="M52 24 v10" stroke="#173d22" stroke-width="2.5" stroke-linecap="round"/><circle cx="52" cy="37" r="3" fill="#173d22"/><path d="M22 30 h20 v14 l-10 12 -10 -12 Z" fill="#f4f6ee" stroke="#173d22" stroke-width="2.5"/><path d="M22 44 h20 l-10 12 Z" fill="#173d22"/><path d="M28 30 v11 M32 30 v13 M36 30 v11" stroke="#173d22" stroke-width="2"/></svg>
+      <h1>Lock In</h1><p>Unlock your best self.</p>
+    </div>
+    <div id="configWarn"></div>
+    <div class="authtabs" id="authtabs"><button data-mode="login" class="active">Log in</button><button data-mode="signup">Sign up</button></div>
+    <label>Email</label><input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email">
+    <label>Password</label><input id="authPass" type="password" placeholder="At least 6 characters" autocomplete="current-password">
+    <button class="btn block" id="authBtn">Log in</button>
+    <div id="authMsg"></div>
+  </div>
+</div>
+<div id="onboard">
+  <div class="card">
+    <div class="progress"><div class="seg on"></div><div class="seg"></div><div class="seg"></div></div>
+    <div class="stepnum" id="stepLabel">Step 1 of 3 &middot; About you</div>
+    <div class="wstep active" data-step="1">
+      <h2 style="color:var(--green);margin:6px 0 2px">Welcome to Lock In</h2>
+      <p class="sub" style="color:var(--muted)">Let's build your profile so everything is personalized to you.</p>
+      <label>What's your name?</label><input id="oName" placeholder="e.g. Alex">
+      <label>What grade level are you?</label>
+      <div class="opts-wrap" id="oLevel" data-single="Middle school|High school|College|Other"></div>
+      <div class="wnav"><button class="btn" id="s1next">Next</button></div>
+    </div>
+    <div class="wstep" data-step="2">
+      <h2 style="color:var(--green);margin:6px 0 2px">Your classes</h2>
+      <p class="sub" style="color:var(--muted)">Add the classes you're taking right now. Include how hard each feels and any upcoming test.</p>
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:2"><label>Class name</label><input id="cName" placeholder="e.g. AP Biology"></div>
+        <div style="flex:1"><label>Difficulty</label><select id="cDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
+      </div>
+      <label>Next test / big deadline (optional)</label><input id="cDate" type="date">
+      <button class="btn ghost sm" id="addClass" style="margin-top:12px">+ Add class</button>
+      <div class="classlist" id="classList"></div><div id="classErr"></div>
+      <div class="wnav"><button class="btn ghost" id="s2back">Back</button><button class="btn" id="s2next">Next</button></div>
+    </div>
+    <div class="wstep" data-step="3">
+      <h2 style="color:var(--green);margin:6px 0 2px">How you study</h2>
+      <p class="sub" style="color:var(--muted)">A few quick questions so your plans and reels fit the way you learn.</p>
+      <label>When do you focus best?</label>
+      <div class="opts-wrap" id="qFocus" data-single="Early morning|Afternoon|Evening|Late night"></div>
+      <label>How long can you focus before getting distracted?</label>
+      <div class="opts-wrap" id="qAttention" data-single="~15 min|~25 min|~45 min|60+ min"></div>
+      <label>Which study methods do you like? (pick any)</label>
+      <div class="opts-wrap" id="qMethods" data-multi="Flashcards|Practice problems|Watching videos|Rereading notes|Teaching someone|Mind maps|Quizzing myself|Group study"></div>
+      <label>What's your biggest distraction?</label>
+      <div class="opts-wrap" id="qDistraction" data-single="Phone / social media|Video games|Feeling tired|Other people|Feeling overwhelmed|Boredom"></div>
+      <label>What motivates you most?</label>
+      <div class="opts-wrap" id="qMotivation" data-single="Good grades|Streaks & progress|Rewards|Competition|Understanding deeply"></div>
+      <label>Preferred study session length</label>
+      <div class="opts-wrap" id="qSession" data-single="Short (20-30 min)|Medium (45-60 min)|Long (90+ min)"></div>
+      <label>Your main goal right now (optional)</label><input id="qGoal" placeholder="e.g. Raise my Biology grade to an A before finals">
+      <div id="obErr"></div>
+      <div class="wnav"><button class="btn ghost" id="s3back">Back</button><button class="btn" id="finishOb">Finish setup</button></div>
+    </div>
+  </div>
+</div>
+<div id="app"><div class="wrap">
+  <div class="topbar">
+    <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M32 8 L58 20 L32 32 L6 20 Z" fill="#173d22"/><path d="M52 24 v10" stroke="#173d22" stroke-width="2.5" stroke-linecap="round"/><circle cx="52" cy="37" r="3" fill="#173d22"/><path d="M22 30 h20 v14 l-10 12 -10 -12 Z" fill="#f4f6ee" stroke="#173d22" stroke-width="2.5"/><path d="M22 44 h20 l-10 12 Z" fill="#173d22"/><path d="M28 30 v11 M32 30 v13 M36 30 v11" stroke="#173d22" stroke-width="2"/></svg>
+    <div class="brand"><h1>Lock In</h1><p>Unlock your best self.</p></div>
+    <div class="userbox"><div class="streakpill">&#128293; <span id="streakNum">0</span></div><span class="usermail" id="userMail"></span><button class="logout" id="logoutBtn">Log out</button></div>
+  </div>
+  <div class="tabs"><button class="tab active" data-tab="home">Home</button><button class="tab" data-tab="plan">Study Plan</button><button class="tab" data-tab="reels">Reels</button><button class="tab" data-tab="progress">Progress</button></div>
+  <section class="panel active" id="home">
+    <div class="hero"><h2 id="greeting">Ready to lock in?</h2><p>Your AI study coach that turns "I'll do it later" into done.</p><p id="heroStatus"></p><div class="quote">"Lock in. Unlock your best self."</div></div>
+    <div class="card"><h2>Your classes</h2><p class="sub">Everything personalizes around these. Manage them anytime.</p>
+      <div class="classlist" id="homeClassList"></div>
+      <div class="row" style="align-items:flex-end;margin-top:8px">
+        <div style="flex:2"><label>Add a class</label><input id="hcName" placeholder="e.g. Chemistry"></div>
+        <div style="flex:1"><label>Difficulty</label><select id="hcDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
+        <div style="flex:0 0 auto"><button class="btn sm" id="hAddClass">+ Add</button></div>
+      </div>
+    </div>
+    <div class="card"><h2>Your study profile</h2><p class="sub">From your setup answers. <a href="#" id="editSetup" style="color:var(--green);font-weight:700">Retake setup</a></p><div class="summaryGrid" id="profileSummary"></div></div>
+    <div class="features">
+      <div class="feat" data-go="plan"><div class="ic">&#128197;</div><h3>AI Study Plan</h3><p>A personalized day-by-day plan built around your classes and how you study.</p></div>
+      <div class="feat" data-go="reels"><div class="ic">&#128241;</div><h3>Lock In Reels</h3><p>Scroll study questions like a feed - learning that feels like TikTok.</p></div>
+      <div class="feat" data-go="progress"><div class="ic">&#128200;</div><h3>Progress & Feedback</h3><p>Track streaks and get AI coaching on how to improve.</p></div>
+    </div>
+  </section>
+  <section class="panel" id="plan">
+    <div class="card"><h2>AI Study Plan Generator</h2><p class="sub">Choose which classes to focus on. Lock In builds a plan around your deadlines and study style.</p>
+      <label>Which classes should this plan cover?</label><div id="planClassPick"></div>
+      <div class="row"><div><label>Plan length</label><select id="planDays"><option value="3">Next 3 days</option><option value="5" selected>Next 5 days</option><option value="7">Next 7 days</option></select></div>
+        <div><label>Study time per day</label><select id="planHours"><option>1 hour</option><option selected>2 hours</option><option>3 hours</option><option>4+ hours</option></select></div></div>
+      <label>Anything else coming up? (optional)</label><textarea id="planDeadlines" rows="2" placeholder="e.g. group project due Monday, SAT in 3 weeks"></textarea>
+      <button class="btn block" id="genPlan">Generate my plan</button><div id="planErr"></div>
+    </div>
+    <div id="planOut"></div>
+  </section>
+  <section class="panel" id="reels">
+    <div class="card"><h2>Lock In Reels</h2><p class="sub">Pick a class (or type a topic) and get an AI question feed - swipe up for the next.</p>
+      <label>Focus this session on...</label><div class="opts-wrap" id="reelClassPick"></div>
+      <label style="margin-top:14px">Or type a specific topic</label><input id="reelTopic" placeholder="e.g. Photosynthesis, WWII causes, quadratics">
+      <button class="btn block" id="genReels">Start reels</button><div id="reelErr"></div>
+    </div>
+    <div id="reelViewport" style="display:none"><div id="reelTrack"></div></div>
+  </section>
+  <section class="panel" id="progress">
+    <div class="stats"><div class="stat"><div class="n" id="stStreak">0</div><div class="l">Day streak</div></div><div class="stat"><div class="n" id="stPlans">0</div><div class="l">Plans made</div></div><div class="stat"><div class="n" id="stReels">0</div><div class="l">Reels answered</div></div><div class="stat"><div class="n" id="stAcc">-</div><div class="l">Reel accuracy</div></div></div>
+    <div class="card"><h2>Activity this week</h2><p class="sub">Reels answered per day.</p><div class="chart-box"><canvas id="actChart"></canvas></div></div>
+    <div class="feedback"><h2>AI Coach feedback</h2><p class="sub">Personalized insight based on your profile and activity.</p><div id="feedbackText" style="margin-top:12px">Answer a few reels or make a plan, then tap below.</div><button class="btn ghost block" id="genFeedback" style="border-color:#fff;color:#fff;margin-top:16px">Get my feedback</button></div>
+  </section>
+</div></div>
+<script>
+"use strict";
+const configured = CONFIG.SUPABASE_URL && CONFIG.SUPABASE_URL.startsWith('http') && CONFIG.SUPABASE_ANON_KEY && CONFIG.SUPABASE_ANON_KEY.length>20;
+let db=null; if(configured){ db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY); }
+const gate=document.getElementById('gate'),onboard=document.getElementById('onboard'),app=document.getElementById('app');
+const todayStr=()=>new Date().toISOString().slice(0,10);
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function uid(){return Math.random().toString(36).slice(2,9);}
+let user=null,state=null;
+function blankState(){return {name:'',level:'High school',classes:[],prefs:{},struggle:'',plans_made:0,reels_answered:0,reels_correct:0,streak:0,last_active:null,daily:{},onboarded:false};}
+function buildPills(container){const single=container.dataset.single, multi=container.dataset.multi;const items=(single||multi).split('|');
+  container.innerHTML=items.map(t=>'<button type="button" class="pill" data-val="'+esc(t)+'">'+esc(t)+'</button>').join('');
+  container.querySelectorAll('.pill').forEach(p=>p.addEventListener('click',()=>{if(single){container.querySelectorAll('.pill').forEach(x=>x.classList.remove('on'));p.classList.add('on');}else{p.classList.toggle('on');}}));}
+function pillValue(c){const el=c.querySelector('.pill.on');return el?el.dataset.val:'';}
+function pillValues(c){return [...c.querySelectorAll('.pill.on')].map(x=>x.dataset.val);}
+function setPill(c,v){c.querySelectorAll('.pill').forEach(x=>x.classList.toggle('on',x.dataset.val===v));}
+function setPills(c,vals){const s=new Set(vals||[]);c.querySelectorAll('.pill').forEach(x=>x.classList.toggle('on',s.has(x.dataset.val)));}
+['oLevel','qFocus','qAttention','qMethods','qDistraction','qMotivation','qSession'].forEach(id=>buildPills(document.getElementById(id)));
+let authMode='login';
+if(!configured){document.getElementById('configWarn').innerHTML='<div class="err">Not connected - paste your Supabase URL + anon key into CONFIG.</div>';document.getElementById('authBtn').disabled=true;}
+document.querySelectorAll('#authtabs button').forEach(b=>b.addEventListener('click',()=>{authMode=b.dataset.mode;document.querySelectorAll('#authtabs button').forEach(x=>x.classList.toggle('active',x===b));document.getElementById('authBtn').textContent=authMode==='login'?'Log in':'Create account';document.getElementById('authMsg').innerHTML='';}));
+document.getElementById('authBtn').addEventListener('click',doAuth);
+document.getElementById('authPass').addEventListener('keydown',e=>{if(e.key==='Enter')doAuth();});
+async function doAuth(){const email=document.getElementById('authEmail').value.trim(),pass=document.getElementById('authPass').value;const msg=document.getElementById('authMsg'),btn=document.getElementById('authBtn');msg.innerHTML='';
+  if(!email||!pass){msg.innerHTML='<div class="err">Enter your email and password.</div>';return;}
+  btn.disabled=true;const old=btn.textContent;btn.innerHTML='<span class="spinner"></span> Working...';
+  try{if(authMode==='signup'){const {data,error}=await db.auth.signUp({email,password:pass});if(error)throw error;if(!data.session)msg.innerHTML='<div class="ok">Account created! Check your email to confirm, then log in.</div>';}
+    else{const {error}=await db.auth.signInWithPassword({email,password:pass});if(error)throw error;}}
+  catch(e){msg.innerHTML='<div class="err">'+esc(e.message||'Something went wrong.')+'</div>';}
+  finally{btn.disabled=false;btn.innerHTML=old;}}
+document.getElementById('logoutBtn').addEventListener('click',async()=>{if(db)await db.auth.signOut();});
+if(db){db.auth.getSession().then(({data})=>handleSession(data.session));db.auth.onAuthStateChange((_e,session)=>handleSession(session));}
+async function handleSession(session){if(session&&session.user){user=session.user;document.getElementById('userMail').textContent=user.email;await loadProfile();}
+  else{user=null;state=null;gate.style.display='block';onboard.style.display='none';app.style.display='none';}}
+async function loadProfile(){state=blankState();
+  const {data,error}=await db.from('profiles').select('*').eq('id',user.id).maybeSingle();if(error)console.warn(error);
+  if(data){Object.assign(state,{name:data.name||'',level:data.level||'High school',classes:Array.isArray(data.classes)?data.classes:[],prefs:data.prefs||{},struggle:data.struggle||'',plans_made:data.plans_made||0,reels_answered:data.reels_answered||0,reels_correct:data.reels_correct||0,streak:data.streak||0,last_active:data.last_active||null,daily:data.daily||{},onboarded:!!data.onboarded});}
+  else{await db.from('profiles').insert({id:user.id});}
+  gate.style.display='none';if(state.onboarded){showApp();}else{startOnboarding();}}
+let saveTimer=null;
+function save(){if(!user||!db)return;clearTimeout(saveTimer);saveTimer=setTimeout(async()=>{const row={id:user.id,name:state.name,level:state.level,classes:state.classes,prefs:state.prefs,struggle:state.struggle,plans_made:state.plans_made,reels_answered:state.reels_answered,reels_correct:state.reels_correct,streak:state.streak,last_active:state.last_active,daily:state.daily,onboarded:state.onboarded,updated_at:new Date().toISOString()};const {error}=await db.from('profiles').upsert(row);if(error)console.warn('save error',error);},400);}
+function touchStreak(){const t=todayStr();if(state.last_active===t)return;const y=new Date(Date.now()-864e5).toISOString().slice(0,10);state.streak=(state.last_active===y)?(state.streak||0)+1:1;state.last_active=t;}
+let obClasses=[];
+function startOnboarding(){gate.style.display='none';app.style.display='none';onboard.style.display='block';
+  document.getElementById('oName').value=state.name||'';setPill(document.getElementById('oLevel'),state.level||'High school');
+  obClasses=(state.classes||[]).map(c=>({...c}));renderObClasses();
+  const p=state.prefs||{};setPill(document.getElementById('qFocus'),p.focus||'');setPill(document.getElementById('qAttention'),p.attention||'');setPills(document.getElementById('qMethods'),p.methods||[]);setPill(document.getElementById('qDistraction'),p.distraction||'');setPill(document.getElementById('qMotivation'),p.motivation||'');setPill(document.getElementById('qSession'),p.session||'');document.getElementById('qGoal').value=p.goal||'';
+  gotoStep(1);window.scrollTo({top:0});}
+function gotoStep(n){document.querySelectorAll('.wstep').forEach(s=>s.classList.toggle('active',+s.dataset.step===n));document.querySelectorAll('.progress .seg').forEach((s,i)=>s.classList.toggle('on',i<n));const labels={1:'Step 1 of 3 - About you',2:'Step 2 of 3 - Your classes',3:'Step 3 of 3 - How you study'};document.getElementById('stepLabel').textContent=labels[n];window.scrollTo({top:0,behavior:'smooth'});}
+function renderObClasses(){const box=document.getElementById('classList');box.innerHTML=obClasses.map(c=>classRowHTML(c)).join('')||'<p class="hint">No classes added yet.</p>';box.querySelectorAll('.rm').forEach(b=>b.addEventListener('click',()=>{obClasses=obClasses.filter(x=>x.id!==b.dataset.id);renderObClasses();}));}
+function classRowHTML(c){const bcls=c.difficulty==='hard'?'b-hard':c.difficulty==='easy'?'b-easy':'b-med';const meta=c.nextTest?('Test: '+c.nextTest):'';return '<div class="classitem"><div class="grow"><span class="cname">'+esc(c.name)+'</span><span class="badge '+bcls+'">'+esc(c.difficulty||'medium')+'</span><div class="cmeta">'+esc(meta)+'</div></div><button class="rm" data-id="'+c.id+'" title="Remove">&times;</button></div>';}
+document.getElementById('addClass').addEventListener('click',()=>{const name=document.getElementById('cName').value.trim();const err=document.getElementById('classErr');err.innerHTML='';if(!name){err.innerHTML='<div class="err">Type a class name first.</div>';return;}obClasses.push({id:uid(),name,difficulty:document.getElementById('cDiff').value,nextTest:document.getElementById('cDate').value||''});document.getElementById('cName').value='';document.getElementById('cDate').value='';renderObClasses();});
+document.getElementById('cName').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();document.getElementById('addClass').click();}});
+document.getElementById('s1next').addEventListener('click',()=>{const name=document.getElementById('oName').value.trim();if(!name){alert('Please enter your name.');return;}gotoStep(2);});
+document.getElementById('s2back').addEventListener('click',()=>gotoStep(1));
+document.getElementById('s2next').addEventListener('click',()=>{const err=document.getElementById('classErr');err.innerHTML='';if(!obClasses.length){err.innerHTML='<div class="err">Add at least one class to continue.</div>';return;}gotoStep(3);});
+document.getElementById('s3back').addEventListener('click',()=>gotoStep(2));
+document.getElementById('finishOb').addEventListener('click',()=>{state.name=document.getElementById('oName').value.trim();state.level=pillValue(document.getElementById('oLevel'))||'High school';state.classes=obClasses.map(c=>({...c}));state.prefs={focus:pillValue(document.getElementById('qFocus')),attention:pillValue(document.getElementById('qAttention')),methods:pillValues(document.getElementById('qMethods')),distraction:pillValue(document.getElementById('qDistraction')),motivation:pillValue(document.getElementById('qMotivation')),session:pillValue(document.getElementById('qSession')),goal:document.getElementById('qGoal').value.trim()};state.struggle=state.prefs.distraction||'';state.onboarded=true;save();showApp();});
+function showApp(){gate.style.display='none';onboard.style.display='none';app.style.display='block';renderHome();goTab('home');}
+document.getElementById('editSetup').addEventListener('click',e=>{e.preventDefault();startOnboarding();});
+function classNames(){return state.classes.map(c=>c.name);}
+function classContext(list){return (list||state.classes).map(c=>c.name+' ('+(c.difficulty||'medium')+(c.nextTest?', next test '+c.nextTest:'')+')').join('; ');}
+function prefsContext(){const p=state.prefs||{};return 'Focuses best: '+(p.focus||'n/a')+'. Attention span: '+(p.attention||'n/a')+'. Likes methods: '+((p.methods||[]).join(', ')||'n/a')+'. Biggest distraction: '+(p.distraction||'n/a')+'. Motivated by: '+(p.motivation||'n/a')+'. Preferred session length: '+(p.session||'n/a')+'. Goal: '+(p.goal||'n/a')+'.';}
+function renderHome(){document.getElementById('greeting').textContent=state.name?('Ready to lock in, '+esc(state.name)+'?'):'Ready to lock in?';const n=state.classes.length;document.getElementById('heroStatus').textContent='Tracking '+n+' class'+(n===1?'':'es')+'. Streak: '+(state.streak||0)+' day'+((state.streak||0)===1?'':'s')+'.';document.getElementById('streakNum').textContent=state.streak||0;renderHomeClasses();renderSummary();}
+function renderHomeClasses(){const box=document.getElementById('homeClassList');box.innerHTML=state.classes.map(c=>classRowHTML(c)).join('')||'<p class="hint">No classes yet - add one below.</p>';box.querySelectorAll('.rm').forEach(b=>b.addEventListener('click',()=>{state.classes=state.classes.filter(x=>x.id!==b.dataset.id);save();renderHome();}));}
+document.getElementById('hAddClass').addEventListener('click',()=>{const name=document.getElementById('hcName').value.trim();if(!name)return;state.classes.push({id:uid(),name,difficulty:document.getElementById('hcDiff').value,nextTest:''});document.getElementById('hcName').value='';save();renderHome();});
+document.getElementById('hcName').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('hAddClass').click();});
+function renderSummary(){const p=state.prefs||{};const items=[['Grade level',state.level],['Focuses best',p.focus],['Attention span',p.attention],['Study methods',(p.methods||[]).join(', ')],['Biggest distraction',p.distraction],['Motivated by',p.motivation],['Session length',p.session],['Main goal',p.goal]];document.getElementById('profileSummary').innerHTML=items.filter(x=>x[1]).map(x=>'<div><div class="k">'+esc(x[0])+'</div><div class="v">'+esc(x[1])+'</div></div>').join('');}
+function aiAvailable(){return (window.cowork&&typeof window.cowork.askClaude==='function')||(!!db)||(CONFIG.ANTHROPIC_API_KEY&&CONFIG.ANTHROPIC_API_KEY.length>10);}
+async function askAI(prompt){
+  if(window.cowork&&typeof window.cowork.askClaude==='function'){const r=await window.cowork.askClaude(prompt,[]);if(typeof r==='string')return r;if(r&&r.text)return r.text;if(r&&Array.isArray(r.content)&&r.content[0]&&r.content[0].text)return r.content[0].text;return String(r);}
+  if(db){
+    const res=await fetch(CONFIG.SUPABASE_URL+'/functions/v1/ai',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+CONFIG.SUPABASE_ANON_KEY,'apikey':CONFIG.SUPABASE_ANON_KEY},body:JSON.stringify({prompt,model:CONFIG.AI_MODEL,max_tokens:1800})});
+    const j=await res.json().catch(()=>({}));
+    if(!res.ok)throw new Error(j.error||('AI request failed ('+res.status+'). Redeploy the "ai" function with the latest code + set the ANTHROPIC_API_KEY secret.'));
+    return j.text||'';
+  }
+  if(CONFIG.ANTHROPIC_API_KEY&&CONFIG.ANTHROPIC_API_KEY.length>10){const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':CONFIG.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:CONFIG.AI_MODEL||'claude-haiku-4-5-20251001',max_tokens:1800,messages:[{role:'user',content:prompt}]})});if(!res.ok){const t=await res.text();throw new Error('AI request failed ('+res.status+'). '+t.slice(0,180));}const j=await res.json();return (j.content&&j.content[0]&&j.content[0].text)||'';}
+  throw new Error('AI is not set up.');
+}
+function extractJSON(txt){if(!txt)return null;let t=String(txt).trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();const s=t.search(/[\[{]/);if(s<0)return null;const open=t[s],close=open==='{'?'}':']';let depth=0,end=-1,inStr=false,e2=false;for(let i=s;i<t.length;i++){const c=t[i];if(inStr){if(e2)e2=false;else if(c==='\\')e2=true;else if(c==='"')inStr=false;continue;}if(c==='"'){inStr=true;continue;}if(c===open)depth++;else if(c===close){depth--;if(depth===0){end=i;break;}}}if(end<0)return null;try{return JSON.parse(t.slice(s,end+1));}catch(e){return null;}}
+const tabs=document.querySelectorAll('.tab'),panels=document.querySelectorAll('.panel');
+function goTab(name){tabs.forEach(t=>t.classList.toggle('active',t.dataset.tab===name));panels.forEach(p=>p.classList.toggle('active',p.id===name));if(name==='plan')renderPlanPicker();if(name==='reels')renderReelPicker();if(name==='progress')renderProgress();window.scrollTo({top:0,behavior:'smooth'});}
+tabs.forEach(t=>t.addEventListener('click',()=>goTab(t.dataset.tab)));
+document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click',()=>goTab(el.dataset.go)));
+function renderPlanPicker(){const box=document.getElementById('planClassPick');if(!state.classes.length){box.innerHTML='<p class="hint">Add classes on the Home tab first.</p>';return;}box.innerHTML=state.classes.map(c=>'<label class="checkrow"><input type="checkbox" value="'+c.id+'" checked><span class="nm">'+esc(c.name)+'</span> <span class="badge '+(c.difficulty==='hard'?'b-hard':c.difficulty==='easy'?'b-easy':'b-med')+'">'+esc(c.difficulty||'medium')+'</span>'+(c.nextTest?'<span class="cmeta" style="margin-left:auto">test '+esc(c.nextTest)+'</span>':'')+'</label>').join('');}
+document.getElementById('genPlan').addEventListener('click',async()=>{const btn=document.getElementById('genPlan'),out=document.getElementById('planOut'),err=document.getElementById('planErr');err.innerHTML='';
+  const picked=[...document.querySelectorAll('#planClassPick input:checked')].map(i=>i.value);const chosen=state.classes.filter(c=>picked.includes(c.id));const extra=document.getElementById('planDeadlines').value.trim();
+  if(!chosen.length&&!extra){err.innerHTML='<div class="err">Select at least one class (or add extra deadlines).</div>';return;}
+  const days=document.getElementById('planDays').value,hours=document.getElementById('planHours').value;
+  btn.disabled=true;const old=btn.textContent;btn.innerHTML='<span class="spinner"></span> Building...';
+  out.innerHTML='<div class="card"><div class="loading"><span class="spinner"></span> Designing a plan around your classes and study style...</div></div>';
+  const prompt='You are Lock In, an AI study coach that helps students beat procrastination with plans tailored to how they actually study. Build a personalized '+days+'-day study plan.\nSTUDENT: '+(state.name||'a student')+' ('+state.level+').\nCLASSES TO COVER: '+(classContext(chosen)||'general study')+'.\nOTHER DEADLINES: '+(extra||'none')+'.\nSTUDY TIME PER DAY: '+hours+'.\nSTUDY PROFILE: '+prefsContext()+'\nUse their profile: schedule harder/nearer-deadline classes during their best focus time, size each work block near their attention span and preferred session length, and prefer the study methods they like. Directly counter their biggest distraction and lean on what motivates them. Keep tasks small, specific and achievable.\nRespond ONLY with valid JSON, no markdown:\n{"summary":"one motivating sentence","days":[{"day":"Day 1 (label)","focus":"theme","blocks":[{"time":"25 min","subject":"Biology","task":"specific task","technique":"Active recall"}]}],"tips":["tip","tip","tip"]}';
+  try{const raw=await askAI(prompt);const plan=extractJSON(raw);if(plan&&Array.isArray(plan.days))renderPlan(plan);else out.innerHTML='<div class="card"><h2>Your plan</h2><div style="white-space:pre-wrap;font-size:14px">'+esc(raw)+'</div></div>';state.plans_made=(state.plans_made||0)+1;touchStreak();save();document.getElementById('streakNum').textContent=state.streak||0;}
+  catch(e){out.innerHTML='';err.innerHTML='<div class="err">'+esc(e.message)+'</div>';}
+  finally{btn.disabled=false;btn.innerHTML=old;}});
+function renderPlan(plan){let html='<div class="card"><h2>Your personalized plan</h2>';if(plan.summary)html+='<div class="plan-summary">'+esc(plan.summary)+'</div>';plan.days.forEach(d=>{html+='<div class="day"><div class="day-head"><span>'+esc(d.day||'Day')+'</span><span class="focus">'+esc(d.focus||'')+'</span></div>';(d.blocks||[]).forEach(b=>{html+='<div class="block"><div class="time">'+esc(b.time||'')+'</div><div class="body"><div class="subj">'+esc(b.subject||'')+'</div><div class="task">'+esc(b.task||'')+'</div>'+(b.technique?'<span class="tech">'+esc(b.technique)+'</span>':'')+'</div></div>';});html+='</div>';});if(Array.isArray(plan.tips)&&plan.tips.length)html+='<div class="tips"><h3>Beat procrastination</h3><ul>'+plan.tips.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul></div>';html+='</div>';document.getElementById('planOut').innerHTML=html;}
+let reelChoice='__mix__';
+function renderReelPicker(){const box=document.getElementById('reelClassPick');let html='<button type="button" class="pill on" data-val="__mix__">Mix all classes</button>';html+=state.classes.map(c=>'<button type="button" class="pill" data-val="'+esc(c.name)+'">'+esc(c.name)+'</button>').join('');box.innerHTML=html;reelChoice='__mix__';box.querySelectorAll('.pill').forEach(p=>p.addEventListener('click',()=>{box.querySelectorAll('.pill').forEach(x=>x.classList.remove('on'));p.classList.add('on');reelChoice=p.dataset.val;if(reelChoice!=='__mix__')document.getElementById('reelTopic').value='';}));}
+document.getElementById('genReels').addEventListener('click',async()=>{const btn=document.getElementById('genReels'),err=document.getElementById('reelErr'),vp=document.getElementById('reelViewport'),track=document.getElementById('reelTrack');err.innerHTML='';
+  let topic=document.getElementById('reelTopic').value.trim();let scope=topic;if(!scope){scope=reelChoice==='__mix__'?(classNames().join(', ')):reelChoice;}
+  if(!scope){err.innerHTML='<div class="err">Pick a class or type a topic.</div>';return;}
+  btn.disabled=true;const old=btn.textContent;btn.innerHTML='<span class="spinner"></span> Loading...';
+  const prompt='You are Lock In, generating a feed of bite-sized study reels for '+(state.name||'a student')+' ('+state.level+'). Topic(s): '+scope+'. They like these study methods: '+((state.prefs.methods||[]).join(', ')||'quizzing')+'. Create 6 engaging reels mixing multiple-choice (4 options) and a couple flashcards. Punchy, social-media friendly, varied difficulty, short memorable explanations. Respond ONLY with valid JSON array of 6 objects:\n[{"type":"mcq","topic":"label","question":"q","options":["A","B","C","D"],"answerIndex":0,"explanation":"why"},{"type":"flash","topic":"label","question":"term","answer":"ans","explanation":"context"}]';
+  try{const raw=await askAI(prompt);let cards=extractJSON(raw);if(!Array.isArray(cards))throw new Error("Couldn't generate reels - try again.");cards=cards.filter(c=>c&&c.question);if(!cards.length)throw new Error('No reels returned - try another topic.');buildReels(cards);vp.style.display='block';track.scrollTop=0;touchStreak();save();document.getElementById('streakNum').textContent=state.streak||0;}
+  catch(e){err.innerHTML='<div class="err">'+esc(e.message)+'</div>';}
+  finally{btn.disabled=false;btn.innerHTML=old;}});
+function buildReels(cards){const track=document.getElementById('reelTrack');track.innerHTML='';cards.forEach(c=>{const reel=document.createElement('div');reel.className='reel'+(c.type==='flash'?' reel-flash':'');
+  if(c.type==='flash'){reel.innerHTML='<div class="tag">'+esc(c.topic||'Flashcard')+' - Flashcard</div><div class="q">'+esc(c.question)+'<div style="font-size:13px;font-weight:500;opacity:.7;margin-top:10px">Tap to reveal</div></div><div class="flash-answer"><b>'+esc(c.answer||'')+'</b>'+(c.explanation?'<br><span style="opacity:.85;font-size:14px;font-weight:400">'+esc(c.explanation)+'</span>':'')+'</div><div class="swipe">Swipe up for next</div>';const q=reel.querySelector('.q'),ans=reel.querySelector('.flash-answer');q.addEventListener('click',()=>{if(ans.classList.contains('show'))return;ans.classList.add('show');recordReel(true);});}
+  else{const opts=(c.options||[]).map((o,idx)=>'<button class="opt" data-i="'+idx+'">'+esc(o)+'</button>').join('');reel.innerHTML='<div class="tag">'+esc(c.topic||'Question')+'</div><div class="q">'+esc(c.question)+'</div><div class="opts">'+opts+'</div><div class="explain"></div><div class="swipe">Swipe up for next</div>';const explain=reel.querySelector('.explain'),ai=typeof c.answerIndex==='number'?c.answerIndex:0;reel.querySelectorAll('.opt').forEach(b=>b.addEventListener('click',()=>{const chosen=+b.dataset.i;reel.querySelectorAll('.opt').forEach(x=>{x.disabled=true;if(+x.dataset.i===ai)x.classList.add('correct');});const ok=chosen===ai;if(!ok)b.classList.add('wrong');explain.innerHTML=(ok?'Correct! ':'Not quite. ')+(c.explanation?esc(c.explanation):'');explain.classList.add('show');recordReel(ok);}));}
+  track.appendChild(reel);});}
+function recordReel(correct){state.reels_answered=(state.reels_answered||0)+1;if(correct)state.reels_correct=(state.reels_correct||0)+1;const t=todayStr();state.daily[t]=(state.daily[t]||0)+1;save();}
+let chart=null;
+function renderProgress(){document.getElementById('stStreak').textContent=state.streak||0;document.getElementById('stPlans').textContent=state.plans_made||0;document.getElementById('stReels').textContent=state.reels_answered||0;const acc=state.reels_answered?Math.round(100*state.reels_correct/state.reels_answered):null;document.getElementById('stAcc').textContent=acc==null?'-':acc+'%';
+  const labels=[],data=[];for(let i=6;i>=0;i--){const d=new Date(Date.now()-i*864e5),key=d.toISOString().slice(0,10);labels.push(d.toLocaleDateString(undefined,{weekday:'short'}));data.push(state.daily[key]||0);}
+  const ctx=document.getElementById('actChart');if(chart)chart.destroy();chart=new Chart(ctx,{type:'bar',data:{labels,datasets:[{label:'Reels',data,backgroundColor:'#3a7d4d',borderRadius:8,maxBarThickness:44}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{precision:0,color:'#5f7059'},grid:{color:'#d3dac8'}},x:{ticks:{color:'#5f7059'},grid:{display:false}}}}});}
+document.getElementById('genFeedback').addEventListener('click',async()=>{const btn=document.getElementById('genFeedback'),box=document.getElementById('feedbackText');const acc=state.reels_answered?Math.round(100*state.reels_correct/state.reels_answered):0;btn.disabled=true;const old=btn.textContent;btn.innerHTML='<span class="spinner"></span> Thinking...';box.textContent='';
+  const prompt='You are Lock In encouraging but honest AI study coach. Give '+(state.name||'the student')+' short personal feedback (3-4 sentences, warm, no bullet lists). Note one win and one concrete next step to reduce procrastination, tuned to their profile.\nCLASSES: '+classContext()+'. PROFILE: '+prefsContext()+'\nSTATS - streak: '+(state.streak||0)+' days, plans made: '+(state.plans_made||0)+', reels answered: '+(state.reels_answered||0)+', accuracy: '+acc+'%.';
+  try{const txt=await askAI(prompt);box.textContent=(txt||'').trim()||'Keep going - consistency beats intensity.';}catch(e){box.textContent=e.message;}finally{btn.disabled=false;btn.innerHTML=old;}});
+</script>
+</body>
+</html>

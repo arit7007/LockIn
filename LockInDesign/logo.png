@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+html,body{margin:0;padding:0;background:#0D100E;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+body{font-family:'Instrument Sans',system-ui,sans-serif;color:#F1F4F2}
+a{color:#A9DDC4;text-decoration:none}
+a:hover{color:#F1F4F2}
+::selection{background:#A9DDC4;color:#0D100E}
+input::placeholder,textarea::placeholder{color:#6B756F}
+select option{background:#151916;color:#F1F4F2}
+#reelTrack::-webkit-scrollbar{display:none}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
+</helmet>
+
+<div style="min-height:100vh;background:#0D100E">
+
+<div id="gate" style="max-width:400px;margin:0 auto;padding:11vh 22px 40px">
+  <div style="text-align:center;margin-bottom:32px">
+    <img src="logo-light.png" alt="Lock In" style="width:58px;height:58px;display:block;margin:0 auto 16px" />
+    <h1 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:34px;line-height:1;letter-spacing:-.02em;margin:0">Lock In</h1>
+    <p style="margin:10px 0 0;font-size:15px;color:#8C968F">Stop scrolling. Start knowing things.</p>
+  </div>
+  <div id="configWarn"></div>
+  <div id="authtabs" style="display:flex;gap:4px;background:#151916;border-radius:12px;padding:4px;margin-bottom:22px">
+    <button type="button" data-mode="login" style="flex:1;border:none;background:#252B27;color:#F1F4F2;padding:10px;border-radius:9px;font:600 14px 'Instrument Sans';cursor:pointer">Log in</button>
+    <button type="button" data-mode="signup" style="flex:1;border:none;background:transparent;color:#8C968F;padding:10px;border-radius:9px;font:600 14px 'Instrument Sans';cursor:pointer">Sign up</button>
+  </div>
+  <label for="authEmail" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:0 0 8px">Email</label>
+  <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email" style="width:100%;padding:14px;border:1px solid #262D28;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2" style-focus="width:100%;padding:14px;border:1px solid #A9DDC4;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2;outline:none" />
+  <label for="authPass" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:18px 0 8px">Password</label>
+  <input id="authPass" type="password" placeholder="At least 6 characters" autocomplete="current-password" style="width:100%;padding:14px;border:1px solid #262D28;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2" style-focus="width:100%;padding:14px;border:1px solid #A9DDC4;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2;outline:none" />
+  <button id="authBtn" type="button" data-accent-bg="1" style="width:100%;margin-top:24px;display:inline-flex;align-items:center;justify-content:center;gap:9px;background:#A9DDC4;color:#0D100E;border:none;border-radius:12px;padding:15px;font:700 15px 'Instrument Sans';cursor:pointer">Log in</button>
+  <div id="authMsg"></div>
+</div>
+
+<div id="onboard" style="display:none;max-width:520px;margin:0 auto;padding:6vh 22px 70px">
+  <div style="display:flex;gap:6px;margin-bottom:20px">
+    <div data-seg="1" data-accent-bg="1" style="flex:1;height:4px;border-radius:99px;background:#A9DDC4"></div>
+    <div data-seg="2" style="flex:1;height:4px;border-radius:99px;background:#262D28"></div>
+    <div data-seg="3" style="flex:1;height:4px;border-radius:99px;background:#262D28"></div>
+  </div>
+  <div id="stepLabel" style="font:600 13px 'Instrument Sans';color:#8C968F;margin-bottom:10px">Step 1 of 3</div>
+
+  <div data-step="1" style="display:block">
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;line-height:1.08;letter-spacing:-.02em;margin:0 0 10px">Let's set you up.</h2>
+    <p style="margin:0;font-size:15px;color:#8C968F;max-width:40ch;line-height:1.5;text-wrap:pretty">Two minutes now, and every plan and reel is built around you.</p>
+    <label for="oName" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:30px 0 8px">What should we call you?</label>
+    <input id="oName" placeholder="e.g. Alex" style="width:100%;padding:14px;border:1px solid #262D28;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2" style-focus="width:100%;padding:14px;border:1px solid #A9DDC4;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2;outline:none" />
+    <label style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 10px">Grade level</label>
+    <div id="oLevel" data-single="Middle school|High school|College|Other" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <button id="s1next" type="button" data-accent-bg="1" style="width:100%;margin-top:32px;background:#A9DDC4;color:#0D100E;border:none;border-radius:12px;padding:15px;font:700 15px 'Instrument Sans';cursor:pointer">Next</button>
+  </div>
+
+  <div data-step="2" style="display:none">
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;line-height:1.08;letter-spacing:-.02em;margin:0 0 10px">What are you taking?</h2>
+    <p style="margin:0;font-size:15px;color:#8C968F;max-width:40ch;line-height:1.5;text-wrap:pretty">Add your classes, how hard each feels, and any test coming up.</p>
+    <div style="background:#151916;border:1px solid #262D28;border-radius:16px;padding:18px;margin-top:24px">
+      <label for="cName" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:0 0 8px">Class name</label>
+      <input id="cName" placeholder="e.g. AP Biology" style="width:100%;padding:13px 14px;border:1px solid #262D28;border-radius:11px;background:#0F1311;font:400 15px 'Instrument Sans';color:#F1F4F2" style-focus="width:100%;padding:13px 14px;border:1px solid #A9DDC4;border-radius:11px;background:#0F1311;font:400 15px 'Instrument Sans';color:#F1F4F2;outline:none" />
+      <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:16px">
+        <div style="flex:1;min-width:130px">
+          <label for="cDiff" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:0 0 8px">Difficulty</label>
+          <select id="cDiff" style="width:100%;padding:13px 14px;border:1px solid #262D28;border-radius:11px;background:#0F1311;font:400 15px 'Instrument Sans';color:#F1F4F2">
+            <option value="easy">Easy</option>
+            <option value="medium" selected="selected">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div style="flex:1;min-width:130px">
+          <label for="cDate" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:0 0 8px">Next test</label>
+          <input id="cDate" type="date" style="width:100%;padding:13px 14px;border:1px solid #262D28;border-radius:11px;background:#0F1311;font:400 15px 'Instrument Sans';color:#F1F4F2" />
+        </div>
+      </div>
+      <button id="addClass" type="button" style="width:100%;margin-top:16px;background:transparent;color:#F1F4F2;border:1px solid #313832;border-radius:11px;padding:12px;font:600 14px 'Instrument Sans';cursor:pointer">Add class</button>
+    </div>
+    <div id="classList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px"></div>
+    <div id="classErr"></div>
+    <div style="display:flex;gap:10px;margin-top:32px">
+      <button id="s2back" type="button" style="flex:1;background:transparent;color:#8C968F;border:1px solid #262D28;border-radius:12px;padding:15px;font:600 15px 'Instrument Sans';cursor:pointer">Back</button>
+      <button id="s2next" type="button" data-accent-bg="1" style="flex:2;background:#A9DDC4;color:#0D100E;border:none;border-radius:12px;padding:15px;font:700 15px 'Instrument Sans';cursor:pointer">Next</button>
+    </div>
+  </div>
+
+  <div data-step="3" style="display:none">
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;line-height:1.08;letter-spacing:-.02em;margin:0 0 10px">How do you actually study?</h2>
+    <p style="margin:0;font-size:15px;color:#8C968F;max-width:40ch;line-height:1.5;text-wrap:pretty">Be honest — the plan is only as good as this.</p>
+    <label style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:28px 0 10px">When do you focus best?</label>
+    <div id="qFocus" data-single="Early morning|Afternoon|Evening|Late night" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <label style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 10px">How long before you drift?</label>
+    <div id="qAttention" data-single="~15 min|~25 min|~45 min|60+ min" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <label style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 10px">Methods you like</label>
+    <div id="qMethods" data-multi="Flashcards|Practice problems|Watching videos|Rereading notes|Teaching someone|Mind maps|Quizzing myself|Group study" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <label style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 10px">Biggest distraction</label>
+    <div id="qDistraction" data-single="Phone / social media|Video games|Feeling tired|Other people|Feeling overwhelmed|Boredom" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <label style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 10px">What keeps you going</label>
+    <div id="qMotivation" data-single="Good grades|Streaks &amp; progress|Rewards|Competition|Understanding deeply" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <label style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 10px">Session length you can hold</label>
+    <div id="qSession" data-single="Short (20-30 min)|Medium (45-60 min)|Long (90+ min)" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <label for="qGoal" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 8px">Your goal right now (optional)</label>
+    <input id="qGoal" placeholder="e.g. Get Bio to an A before finals" style="width:100%;padding:14px;border:1px solid #262D28;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2" style-focus="width:100%;padding:14px;border:1px solid #A9DDC4;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2;outline:none" />
+    <div id="obErr"></div>
+    <div style="display:flex;gap:10px;margin-top:32px">
+      <button id="s3back" type="button" style="flex:1;background:transparent;color:#8C968F;border:1px solid #262D28;border-radius:12px;padding:15px;font:600 15px 'Instrument Sans';cursor:pointer">Back</button>
+      <button id="finishOb" type="button" data-accent-bg="1" style="flex:2;background:#A9DDC4;color:#0D100E;border:none;border-radius:12px;padding:15px;font:700 15px 'Instrument Sans';cursor:pointer">Lock it in</button>
+    </div>
+  </div>
+</div>
+
+<div id="app" style="display:none;max-width:480px;margin:0 auto;padding:22px 22px 140px">
+
+  <div style="display:flex;align-items:center;gap:11px;margin-bottom:34px;position:relative">
+    <img src="logo-light.png" alt="" style="width:28px;height:28px;flex:0 0 auto;display:block" />
+    <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:18px;letter-spacing:-.01em">Lock In</div>
+    <button id="avatarBtn" type="button" style="margin-left:auto;width:34px;height:34px;border-radius:50%;border:1px solid #262D28;background:#151916;font:600 14px 'Instrument Sans';color:#F1F4F2;cursor:pointer">·</button>
+    <div id="userMenu" style="display:none;position:absolute;right:0;top:42px;z-index:60;background:#1A1F1C;border:1px solid #2B322D;border-radius:14px;padding:14px;min-width:210px;box-shadow:0 18px 40px rgba(0,0,0,.5)">
+      <div id="userMail" style="font-size:13px;color:#8C968F;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:10px"></div>
+      <button id="viewProfile" type="button" style="width:100%;text-align:left;background:transparent;border:none;padding:8px 0;font:600 14px 'Instrument Sans';color:#F1F4F2;cursor:pointer">How you study</button>
+      <button id="editSetup" type="button" style="width:100%;text-align:left;background:transparent;border:none;padding:8px 0;font:600 14px 'Instrument Sans';color:#F1F4F2;cursor:pointer">Retake setup</button>
+      <button id="logoutBtn" type="button" style="width:100%;text-align:left;background:transparent;border:none;padding:8px 0;font:600 14px 'Instrument Sans';color:#D2705A;cursor:pointer">Log out</button>
+    </div>
+  </div>
+
+  <section data-panel="home" style="display:block">
+    <h2 id="greeting" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:28px;line-height:1.1;letter-spacing:-.02em;margin:0 0 6px">Ready to lock in?</h2>
+    <p id="heroStatus" style="margin:0 0 34px;font-size:15px;color:#8C968F"></p>
+
+    <div style="font:600 13px 'Instrument Sans';color:#8C968F;margin-bottom:10px">Pick up where you left off</div>
+    <div style="background:#10382A;border-radius:18px;padding:22px;margin-bottom:34px">
+      <div style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:21px;line-height:1.15;letter-spacing:-.01em;margin-bottom:6px">Run a set of reels</div>
+      <p style="margin:0 0 18px;font-size:14px;color:#9EC4B4;line-height:1.45;max-width:34ch">Six quick questions from your classes. Two minutes, thumb only.</p>
+      <button type="button" data-go="reels" data-accent-bg="1" style="width:100%;background:#A9DDC4;color:#0D100E;border:none;border-radius:12px;padding:14px;font:700 15px 'Instrument Sans';cursor:pointer">Start reels</button>
+      <button type="button" data-go="plan" style="width:100%;margin-top:8px;background:transparent;color:#DCEDE4;border:none;border-radius:12px;padding:12px;font:600 14px 'Instrument Sans';cursor:pointer">Or build a study plan</button>
+    </div>
+
+    <div style="font:600 13px 'Instrument Sans';color:#8C968F;margin-bottom:10px">Your streak</div>
+    <div style="background:#151916;border:1px solid #212823;border-radius:18px;padding:22px;margin-bottom:34px">
+      <div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:20px">
+        <div id="streakNum" data-accent-fg="1" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:56px;line-height:.85;letter-spacing:-.04em;color:#A9DDC4">0</div>
+        <div style="padding-bottom:4px;font-size:15px;color:#8C968F">day streak</div>
+        <div id="mAcc" style="margin-left:auto;padding-bottom:4px;font-size:15px;color:#8C968F">—</div>
+      </div>
+      <div id="weekDots" style="display:flex;gap:6px"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;margin-bottom:10px">
+      <div style="font:600 13px 'Instrument Sans';color:#8C968F">Your classes</div>
+      <button id="toggleAddClass" type="button" style="margin-left:auto;background:transparent;border:none;font:600 13px 'Instrument Sans';color:#A9DDC4;cursor:pointer;padding:0">Add</button>
+    </div>
+    <div id="homeClassList" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div id="addClassBox" style="display:none;background:#151916;border:1px solid #212823;border-radius:16px;padding:16px;margin-top:10px">
+      <input id="hcName" placeholder="Class name" style="width:100%;padding:13px 14px;border:1px solid #262D28;border-radius:11px;background:#0F1311;font:400 15px 'Instrument Sans';color:#F1F4F2" style-focus="width:100%;padding:13px 14px;border:1px solid #A9DDC4;border-radius:11px;background:#0F1311;font:400 15px 'Instrument Sans';color:#F1F4F2;outline:none" />
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <select id="hcDiff" style="flex:1;padding:13px 14px;border:1px solid #262D28;border-radius:11px;background:#0F1311;font:400 15px 'Instrument Sans';color:#F1F4F2">
+          <option value="easy">Easy</option>
+          <option value="medium" selected="selected">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+        <button id="hAddClass" type="button" data-accent-bg="1" style="background:#A9DDC4;color:#0D100E;border:none;border-radius:11px;padding:13px 22px;font:700 14px 'Instrument Sans';cursor:pointer">Add</button>
+      </div>
+    </div>
+
+    <div id="profileWrap" style="display:none;margin-top:34px">
+      <div style="font:600 13px 'Instrument Sans';color:#8C968F;margin-bottom:10px">How you study</div>
+      <div id="profileSummary" style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#212823;border:1px solid #212823;border-radius:16px;overflow:hidden"></div>
+    </div>
+  </section>
+
+  <section data-panel="plan" style="display:none">
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:28px;line-height:1.1;letter-spacing:-.02em;margin:0 0 6px">Study plan</h2>
+    <p style="margin:0 0 28px;font-size:15px;color:#8C968F;max-width:40ch;line-height:1.5;text-wrap:pretty">Pick what to cover. We'll shape it around your deadlines.</p>
+    <div style="font:600 13px 'Instrument Sans';color:#8C968F;margin-bottom:10px">Classes to cover</div>
+    <div id="planClassPick" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:24px">
+      <div style="flex:1;min-width:140px">
+        <label for="planDays" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:0 0 8px">Plan length</label>
+        <select id="planDays" style="width:100%;padding:13px 14px;border:1px solid #262D28;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2">
+          <option value="3">Next 3 days</option>
+          <option value="5" selected="selected">Next 5 days</option>
+          <option value="7">Next 7 days</option>
+        </select>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <label for="planHours" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:0 0 8px">Time per day</label>
+        <select id="planHours" style="width:100%;padding:13px 14px;border:1px solid #262D28;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2">
+          <option>1 hour</option>
+          <option selected="selected">2 hours</option>
+          <option>3 hours</option>
+          <option>4+ hours</option>
+        </select>
+      </div>
+    </div>
+    <label for="planDeadlines" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 8px">Anything else coming up?</label>
+    <textarea id="planDeadlines" rows="2" placeholder="e.g. group project Monday" style="width:100%;padding:14px;border:1px solid #262D28;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2;resize:vertical"></textarea>
+    <button id="genPlan" type="button" data-accent-bg="1" style="width:100%;margin-top:24px;display:inline-flex;align-items:center;justify-content:center;gap:9px;background:#A9DDC4;color:#0D100E;border:none;border-radius:12px;padding:15px;font:700 15px 'Instrument Sans';cursor:pointer">Generate my plan</button>
+    <div id="planErr"></div>
+    <div id="planOut" style="margin-top:20px"></div>
+  </section>
+
+  <section data-panel="reels" style="display:none">
+    <div id="reelSetup">
+      <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:28px;line-height:1.1;letter-spacing:-.02em;margin:0 0 6px">Reels</h2>
+      <p style="margin:0 0 28px;font-size:15px;color:#8C968F;max-width:40ch;line-height:1.5;text-wrap:pretty">Same thumb motion, different outcome.</p>
+      <div style="font:600 13px 'Instrument Sans';color:#8C968F;margin-bottom:10px">Focus on</div>
+      <div id="reelClassPick" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      <label for="reelTopic" style="display:block;font:600 13px 'Instrument Sans';color:#8C968F;margin:24px 0 8px">Or a specific topic</label>
+      <input id="reelTopic" placeholder="e.g. Photosynthesis" style="width:100%;padding:14px;border:1px solid #262D28;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2" style-focus="width:100%;padding:14px;border:1px solid #A9DDC4;border-radius:11px;background:#151916;font:400 15px 'Instrument Sans';color:#F1F4F2;outline:none" />
+      <button id="genReels" type="button" data-accent-bg="1" style="width:100%;margin-top:24px;display:inline-flex;align-items:center;justify-content:center;gap:9px;background:#A9DDC4;color:#0D100E;border:none;border-radius:12px;padding:15px;font:700 15px 'Instrument Sans';cursor:pointer">Start reels</button>
+      <div id="reelErr"></div>
+    </div>
+    <div id="reelViewport" style="display:none;position:relative;height:76vh;min-height:520px;border-radius:20px;overflow:hidden;background:#10382A">
+      <div id="reelTrack" style="height:100%;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none"></div>
+      <div id="reelCount" style="position:absolute;top:16px;right:16px;z-index:5;color:#9EC4B4;font:600 13px 'Instrument Sans'">1 / 6</div>
+      <button id="reelExit" type="button" style="position:absolute;bottom:14px;right:16px;z-index:5;background:rgba(255,255,255,.1);color:#F1F4F2;border:none;border-radius:99px;padding:8px 14px;font:600 12px 'Instrument Sans';cursor:pointer">New set</button>
+    </div>
+  </section>
+
+  <section data-panel="progress" style="display:none">
+    <h2 style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:28px;line-height:1.1;letter-spacing:-.02em;margin:0 0 28px">Progress</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:34px">
+      <div style="background:#151916;border:1px solid #212823;border-radius:16px;padding:18px">
+        <div id="stStreak" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;line-height:1;letter-spacing:-.03em">0</div>
+        <div style="font:400 13px 'Instrument Sans';color:#8C968F;margin-top:6px">Day streak</div>
+      </div>
+      <div style="background:#151916;border:1px solid #212823;border-radius:16px;padding:18px">
+        <div id="stReels" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;line-height:1;letter-spacing:-.03em">0</div>
+        <div style="font:400 13px 'Instrument Sans';color:#8C968F;margin-top:6px">Reels answered</div>
+      </div>
+      <div style="background:#151916;border:1px solid #212823;border-radius:16px;padding:18px">
+        <div id="stAcc" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;line-height:1;letter-spacing:-.03em">—</div>
+        <div style="font:400 13px 'Instrument Sans';color:#8C968F;margin-top:6px">Accuracy</div>
+      </div>
+      <div style="background:#151916;border:1px solid #212823;border-radius:16px;padding:18px">
+        <div id="stPlans" style="font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:30px;line-height:1;letter-spacing:-.03em">0</div>
+        <div style="font:400 13px 'Instrument Sans';color:#8C968F;margin-top:6px">Plans made</div>
+      </div>
+    </div>
+    <div style="font:600 13px 'Instrument Sans';color:#8C968F;margin-bottom:10px">Reels answered this week</div>
+    <div style="background:#151916;border:1px solid #212823;border-radius:18px;padding:18px;margin-bottom:34px">
+      <div style="height:190px;position:relative"><canvas id="actChart"></canvas></div>
+    </div>
+    <div style="font:600 13px 'Instrument Sans';color:#8C968F;margin-bottom:10px">Coach check-in</div>
+    <div style="background:#10382A;border-radius:18px;padding:22px">
+      <div id="feedbackText" style="font-size:15px;line-height:1.6;white-space:pre-wrap;color:#DCEDE4">One win, one fix. Answer a few reels first.</div>
+      <button id="genFeedback" type="button" data-accent-bg="1" style="width:100%;margin-top:18px;display:inline-flex;align-items:center;justify-content:center;gap:9px;background:#A9DDC4;color:#0D100E;border:none;border-radius:12px;padding:14px;font:700 15px 'Instrument Sans';cursor:pointer">Get my feedback</button>
+    </div>
+  </section>
+
+  <nav id="tabbar" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:50;display:flex;gap:2px;background:#1A1F1C;border:1px solid #2B322D;border-radius:99px;padding:5px;box-shadow:0 14px 40px rgba(0,0,0,.55)">
+    <button type="button" data-tab="home" style="border:none;background:transparent;color:#F1F4F2;border-radius:99px;padding:10px 18px;font:600 14px 'Instrument Sans';cursor:pointer">Home</button>
+    <button type="button" data-tab="plan" style="border:none;background:transparent;color:#8C968F;border-radius:99px;padding:10px 18px;font:600 14px 'Instrument Sans';cursor:pointer">Plan</button>
+    <button type="button" data-tab="reels" style="border:none;background:transparent;color:#8C968F;border-radius:99px;padding:10px 18px;font:600 14px 'Instrument Sans';cursor:pointer">Reels</button>
+    <button type="button" data-tab="progress" style="border:none;background:transparent;color:#8C968F;border-radius:99px;padding:10px 18px;font:600 14px 'Instrument Sans';cursor:pointer">Progress</button>
+  </nav>
+</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:430,&quot;height&quot;:900},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#A9DDC4&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#A9DDC4&quot;,&quot;#8FD6B0&quot;,&quot;#C6E8A8&quot;,&quot;#9CD3E0&quot;],&quot;section&quot;:&quot;Look&quot;},&quot;reelCount&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:6,&quot;min&quot;:3,&quot;max&quot;:12,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Behavior&quot;}}">
+class Component extends DCLogic {
+  componentDidMount(){
+    if (this._booted) return; this._booted = true;
+    const boot = () => {
+      if (!window.supabase || !window.Chart) return setTimeout(boot, 60);
+      try { this.run(); } catch(e){ console.error('Lock In boot error', e); }
+    };
+    boot();
+  }
+
+  run(){
+  const ACCENT = this.props.accent || '#A9DDC4';
+  const REEL_N = this.props.reelCount || 6;
+  const BG='#0D100E', CARD='#151916', LINE='#262D28', TEXT='#F1F4F2', MUTED='#8C968F', GREEN='#10382A', WRONG='#D2705A';
+  document.querySelectorAll('[data-accent-bg]').forEach(el=>el.style.background=ACCENT);
+  document.querySelectorAll('[data-accent-fg]').forEach(el=>el.style.color=ACCENT);
+
+  const CONFIG = {
+    SUPABASE_URL:"https://zbbnjebnzwhhflhgpsqu.supabase.co",
+    SUPABASE_ANON_KEY:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpiYm5qZWJuendoaGZsaGdwc3F1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4NTQyMTAsImV4cCI6MjA5ODQzMDIxMH0.fGtVgagQUR1K4TbNdsyFX60-lovmYn196HrQRDpEg1s",
+    ANTHROPIC_API_KEY:"", AI_MODEL:"claude-haiku-4-5-20251001"
+  };
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const uid = () => Math.random().toString(36).slice(2,9);
+  const todayStr = () => new Date().toISOString().slice(0,10);
+  const errBox = t => '<div style="background:#2A1A16;border:1px solid #4A2A21;color:#E5A491;border-radius:11px;padding:12px 14px;font-size:14px;margin-top:14px">'+esc(t)+'</div>';
+  const okBox  = t => '<div style="background:#16261F;border:1px solid #27473A;color:#A9DDC4;border-radius:11px;padding:12px 14px;font-size:14px;margin-top:14px">'+esc(t)+'</div>';
+  const spinner = c => '<span style="width:15px;height:15px;border:2.5px solid '+(c||'rgba(13,16,14,.3)')+';border-top-color:'+(c?TEXT:BG)+';border-radius:50%;display:inline-block;animation:spin .7s linear infinite"></span>';
+  const diffColor = d => d==='hard'?WRONG : d==='easy'?'#5FA37F' : '#C2A662';
+  const daysTo = d => { if(!d) return null; const ms=new Date(d+'T00:00:00')-new Date(todayStr()+'T00:00:00'); return Math.round(ms/864e5); };
+
+  const configured = CONFIG.SUPABASE_URL.startsWith('http') && CONFIG.SUPABASE_ANON_KEY.length>20;
+  const db = configured ? window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY) : null;
+  const gate=$('gate'), onboard=$('onboard'), app=$('app');
+  let user=null, state=null;
+
+  const blankState = () => ({name:'',level:'High school',classes:[],prefs:{},struggle:'',plans_made:0,reels_answered:0,reels_correct:0,streak:0,last_active:null,daily:{},onboarded:false});
+
+  /* ---------- pills ---------- */
+  function pillStyle(on){ return on
+    ? 'border:1px solid '+ACCENT+';background:'+ACCENT+';color:'+BG+';border-radius:99px;padding:10px 16px;font:600 14px \'Instrument Sans\';cursor:pointer;transition:.12s'
+    : 'border:1px solid '+LINE+';background:'+CARD+';color:'+TEXT+';border-radius:99px;padding:10px 16px;font:600 14px \'Instrument Sans\';cursor:pointer;transition:.12s'; }
+  function buildPills(c){
+    const single=c.dataset.single, multi=c.dataset.multi;
+    c.innerHTML=(single||multi).split('|').map(t=>'<button type="button" data-val="'+esc(t)+'" style="'+pillStyle(false)+'">'+esc(t)+'</button>').join('');
+    c.querySelectorAll('button').forEach(p=>p.addEventListener('click',()=>{
+      if(single){ c.querySelectorAll('button').forEach(x=>{x.dataset.on='';x.style.cssText=pillStyle(false);}); p.dataset.on='1'; p.style.cssText=pillStyle(true); }
+      else { const on=p.dataset.on!=='1'; p.dataset.on=on?'1':''; p.style.cssText=pillStyle(on); }
+    }));
+  }
+  const pillValue = c => { const el=c.querySelector('button[data-on="1"]'); return el?el.dataset.val:''; };
+  const pillValues = c => [...c.querySelectorAll('button[data-on="1"]')].map(x=>x.dataset.val);
+  function setPill(c,v){ c.querySelectorAll('button').forEach(x=>{const on=x.dataset.val===v;x.dataset.on=on?'1':'';x.style.cssText=pillStyle(on);}); }
+  function setPills(c,vals){ const s=new Set(vals||[]); c.querySelectorAll('button').forEach(x=>{const on=s.has(x.dataset.val);x.dataset.on=on?'1':'';x.style.cssText=pillStyle(on);}); }
+  ['oLevel','qFocus','qAttention','qMethods','qDistraction','qMotivation','qSession'].forEach(id=>buildPills($(id)));
+
+  /* ---------- auth ---------- */
+  let authMode='login';
+  if(!configured){ $('configWarn').innerHTML=errBox('Not connected — add your Supabase URL and anon key.'); $('authBtn').disabled=true; }
+  $('authtabs').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{
+    authMode=b.dataset.mode;
+    $('authtabs').querySelectorAll('button').forEach(x=>{
+      const on = x===b;
+      x.style.background = on?'#252B27':'transparent';
+      x.style.color = on?TEXT:MUTED;
+    });
+    $('authBtn').textContent = authMode==='login'?'Log in':'Create account';
+    $('authMsg').innerHTML='';
+  }));
+  async function doAuth(){
+    const email=$('authEmail').value.trim(), pass=$('authPass').value, msg=$('authMsg'), btn=$('authBtn');
+    msg.innerHTML='';
+    if(!email||!pass){ msg.innerHTML=errBox('Enter your email and password.'); return; }
+    btn.disabled=true; const old=btn.textContent; btn.innerHTML=spinner()+' Working…';
+    try{
+      if(authMode==='signup'){ const {data,error}=await db.auth.signUp({email,password:pass}); if(error)throw error; if(!data.session) msg.innerHTML=okBox('Account created. Confirm your email, then log in.'); }
+      else { const {error}=await db.auth.signInWithPassword({email,password:pass}); if(error)throw error; }
+    }catch(e){ msg.innerHTML=errBox(e.message||'Something went wrong.'); }
+    finally{ btn.disabled=false; btn.innerHTML=old; }
+  }
+  $('authBtn').addEventListener('click',doAuth);
+  $('authPass').addEventListener('keydown',e=>{ if(e.key==='Enter') doAuth(); });
+  $('logoutBtn').addEventListener('click',async()=>{ if(db) await db.auth.signOut(); });
+  $('avatarBtn').addEventListener('click',e=>{ e.stopPropagation(); const m=$('userMenu'); m.style.display = m.style.display==='none'?'block':'none'; });
+  document.addEventListener('click',()=>{ const m=$('userMenu'); if(m) m.style.display='none'; });
+  $('userMenu').addEventListener('click',e=>e.stopPropagation());
+  $('viewProfile').addEventListener('click',()=>{
+    $('userMenu').style.display='none';
+    const w=$('profileWrap'); w.style.display = w.style.display==='none'?'block':'none';
+    if(w.style.display==='block') w.scrollIntoViewIfNeeded ? null : null;
+  });
+
+  if(db){ db.auth.getSession().then(({data})=>handleSession(data.session)); db.auth.onAuthStateChange((_e,s)=>handleSession(s)); }
+  async function handleSession(session){
+    if(session&&session.user){ user=session.user; $('userMail').textContent=user.email; $('avatarBtn').textContent=(user.email||'?')[0].toUpperCase(); await loadProfile(); }
+    else { user=null; state=null; gate.style.display='block'; onboard.style.display='none'; app.style.display='none'; }
+  }
+  async function loadProfile(){
+    state=blankState();
+    const {data,error}=await db.from('profiles').select('*').eq('id',user.id).maybeSingle();
+    if(error) console.warn(error);
+    if(data) Object.assign(state,{name:data.name||'',level:data.level||'High school',classes:Array.isArray(data.classes)?data.classes:[],prefs:data.prefs||{},struggle:data.struggle||'',plans_made:data.plans_made||0,reels_answered:data.reels_answered||0,reels_correct:data.reels_correct||0,streak:data.streak||0,last_active:data.last_active||null,daily:data.daily||{},onboarded:!!data.onboarded});
+    else await db.from('profiles').insert({id:user.id});
+    gate.style.display='none';
+    if(state.onboarded) showApp(); else startOnboarding();
+  }
+  let saveTimer=null;
+  function save(){
+    if(!user||!db) return;
+    clearTimeout(saveTimer);
+    saveTimer=setTimeout(async()=>{
+      const row={id:user.id,name:state.name,level:state.level,classes:state.classes,prefs:state.prefs,struggle:state.struggle,plans_made:state.plans_made,reels_answered:state.reels_answered,reels_correct:state.reels_correct,streak:state.streak,last_active:state.last_active,daily:state.daily,onboarded:state.onboarded,updated_at:new Date().toISOString()};
+      const {error}=await db.from('profiles').upsert(row); if(error) console.warn('save error',error);
+    },400);
+  }
+  function touchStreak(){
+    const t=todayStr(); if(state.last_active===t) return;
+    const y=new Date(Date.now()-864e5).toISOString().slice(0,10);
+    state.streak=(state.last_active===y)?(state.streak||0)+1:1; state.last_active=t;
+  }
+
+  /* ---------- onboarding ---------- */
+  let obClasses=[];
+  function startOnboarding(){
+    gate.style.display='none'; app.style.display='none'; onboard.style.display='block';
+    $('oName').value=state.name||''; setPill($('oLevel'),state.level||'High school');
+    obClasses=(state.classes||[]).map(c=>({...c})); renderObClasses();
+    const p=state.prefs||{};
+    setPill($('qFocus'),p.focus||''); setPill($('qAttention'),p.attention||''); setPills($('qMethods'),p.methods||[]);
+    setPill($('qDistraction'),p.distraction||''); setPill($('qMotivation'),p.motivation||''); setPill($('qSession'),p.session||'');
+    $('qGoal').value=p.goal||'';
+    gotoStep(1); window.scrollTo({top:0});
+  }
+  function gotoStep(n){
+    document.querySelectorAll('[data-step]').forEach(s=>s.style.display=(+s.dataset.step===n)?'block':'none');
+    document.querySelectorAll('[data-seg]').forEach(s=>s.style.background=(+s.dataset.seg<=n)?ACCENT:LINE);
+    $('stepLabel').textContent='Step '+n+' of 3';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  function classRowHTML(c,ctx){
+    const d=daysTo(c.nextTest);
+    const meta = d==null ? '' : (d<0?'test passed':d===0?'test today':d===1?'test tomorrow':'test in '+d+' days');
+    return '<div style="display:flex;align-items:center;gap:12px;background:'+CARD+';border:1px solid #212823;border-radius:14px;padding:14px 16px">'
+      + '<span style="width:8px;height:8px;border-radius:50%;background:'+diffColor(c.difficulty)+';flex:0 0 auto"></span>'
+      + '<div style="flex:1;min-width:0"><div style="font:600 15px \'Instrument Sans\';line-height:1.2">'+esc(c.name)+'</div>'
+      + (meta?'<div style="font-size:13px;color:'+MUTED+';margin-top:3px">'+esc(meta)+'</div>':'')+'</div>'
+      + '<button type="button" data-rm="'+c.id+'" data-ctx="'+ctx+'" style="background:transparent;border:none;color:#5C6560;font-size:19px;line-height:1;cursor:pointer;padding:4px 2px">&times;</button></div>';
+  }
+  function renderObClasses(){
+    const box=$('classList');
+    box.innerHTML = obClasses.map(c=>classRowHTML(c,'ob')).join('');
+    box.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{ obClasses=obClasses.filter(x=>x.id!==b.dataset.rm); renderObClasses(); }));
+  }
+  $('addClass').addEventListener('click',()=>{
+    const name=$('cName').value.trim(), err=$('classErr'); err.innerHTML='';
+    if(!name){ err.innerHTML=errBox('Type a class name first.'); return; }
+    obClasses.push({id:uid(),name,difficulty:$('cDiff').value,nextTest:$('cDate').value||''});
+    $('cName').value=''; $('cDate').value=''; renderObClasses();
+  });
+  $('cName').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('addClass').click(); }});
+  $('s1next').addEventListener('click',()=>{ if(!$('oName').value.trim()){ $('oName').focus(); return; } gotoStep(2); });
+  $('s2back').addEventListener('click',()=>gotoStep(1));
+  $('s2next').addEventListener('click',()=>{ const err=$('classErr'); err.innerHTML=''; if(!obClasses.length){ err.innerHTML=errBox('Add at least one class to continue.'); return; } gotoStep(3); });
+  $('s3back').addEventListener('click',()=>gotoStep(2));
+  $('finishOb').addEventListener('click',()=>{
+    state.name=$('oName').value.trim();
+    state.level=pillValue($('oLevel'))||'High school';
+    state.classes=obClasses.map(c=>({...c}));
+    state.prefs={focus:pillValue($('qFocus')),attention:pillValue($('qAttention')),methods:pillValues($('qMethods')),distraction:pillValue($('qDistraction')),motivation:pillValue($('qMotivation')),session:pillValue($('qSession')),goal:$('qGoal').value.trim()};
+    state.struggle=state.prefs.distraction||''; state.onboarded=true; save(); showApp();
+  });
+  $('editSetup').addEventListener('click',()=>{ $('userMenu').style.display='none'; startOnboarding(); });
+
+  /* ---------- shell ---------- */
+  function showApp(){ gate.style.display='none'; onboard.style.display='none'; app.style.display='block'; renderHome(); goTab('home'); }
+  const tabBtns=[...document.querySelectorAll('[data-tab]')];
+  function goTab(name){
+    tabBtns.forEach(t=>{ const on=t.dataset.tab===name; t.style.background=on?ACCENT:'transparent'; t.style.color=on?BG:MUTED; });
+    document.querySelectorAll('[data-panel]').forEach(p=>{ const on=p.dataset.panel===name; p.style.display=on?'block':'none'; if(on) p.style.animation='fadeUp .26s ease'; });
+    if(name==='plan') renderPlanPicker();
+    if(name==='reels') renderReelPicker();
+    if(name==='progress') renderProgress();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  tabBtns.forEach(t=>t.addEventListener('click',()=>goTab(t.dataset.tab)));
+  document.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click',()=>goTab(el.dataset.go)));
+
+  const classNames = () => state.classes.map(c=>c.name);
+  const classContext = list => (list||state.classes).map(c=>c.name+' ('+(c.difficulty||'medium')+(c.nextTest?', next test '+c.nextTest:'')+')').join('; ');
+  function prefsContext(){ const p=state.prefs||{}; return 'Focuses best: '+(p.focus||'n/a')+'. Attention span: '+(p.attention||'n/a')+'. Likes methods: '+((p.methods||[]).join(', ')||'n/a')+'. Biggest distraction: '+(p.distraction||'n/a')+'. Motivated by: '+(p.motivation||'n/a')+'. Preferred session length: '+(p.session||'n/a')+'. Goal: '+(p.goal||'n/a')+'.'; }
+
+  /* ---------- home ---------- */
+  function weekKeys(){ const out=[]; for(let i=6;i>=0;i--){ const d=new Date(Date.now()-i*864e5); out.push({key:d.toISOString().slice(0,10),label:d.toLocaleDateString(undefined,{weekday:'narrow'})}); } return out; }
+  function renderHome(){
+    const hr=new Date().getHours();
+    const part = hr<12?'Good morning':hr<18?'Good afternoon':'Good evening';
+    $('greeting').textContent = state.name ? (part+', '+state.name+'.') : (part+'.');
+    $('heroStatus').textContent = (state.daily[todayStr()]||0)>0 ? "Today's already counted." : 'One reel keeps the streak alive.';
+    $('streakNum').textContent=state.streak||0;
+    const acc = state.reels_answered ? Math.round(100*state.reels_correct/state.reels_answered) : null;
+    $('mAcc').textContent = acc==null ? '' : acc+'% accuracy';
+    $('weekDots').innerHTML = weekKeys().map(d=>{
+      const n=state.daily[d.key]||0, on=n>0;
+      return '<div style="flex:1;text-align:center">'
+        + '<div style="height:30px;border-radius:8px;background:'+(on?ACCENT:'#1D231F')+'"></div>'
+        + '<div style="font-size:11px;color:#6B756F;margin-top:6px">'+d.label+'</div></div>';
+    }).join('');
+    renderHomeClasses(); renderSummary();
+  }
+  function renderHomeClasses(){
+    const box=$('homeClassList');
+    box.innerHTML = state.classes.map(c=>classRowHTML(c,'home')).join('') || '<p style="font-size:14px;color:'+MUTED+';margin:0">No classes yet.</p>';
+    box.querySelectorAll('[data-rm]').forEach(b=>b.addEventListener('click',()=>{ state.classes=state.classes.filter(x=>x.id!==b.dataset.rm); save(); renderHome(); }));
+  }
+  $('toggleAddClass').addEventListener('click',()=>{ const b=$('addClassBox'); const show=b.style.display==='none'; b.style.display=show?'block':'none'; if(show)$('hcName').focus(); });
+  $('hAddClass').addEventListener('click',()=>{
+    const name=$('hcName').value.trim(); if(!name) return;
+    state.classes.push({id:uid(),name,difficulty:$('hcDiff').value,nextTest:''});
+    $('hcName').value=''; $('addClassBox').style.display='none'; save(); renderHome();
+  });
+  $('hcName').addEventListener('keydown',e=>{ if(e.key==='Enter') $('hAddClass').click(); });
+  function renderSummary(){
+    const p=state.prefs||{};
+    const items=[['Grade',state.level],['Peak hours',p.focus],['Focus span',p.attention],['Session',p.session],['Distraction',p.distraction],['Driven by',p.motivation],['Methods',(p.methods||[]).join(', ')],['Goal',p.goal]].filter(x=>x[1]);
+    $('profileSummary').innerHTML = items.map((x,i)=>'<div style="background:'+CARD+';padding:14px 16px'+(items.length%2===1&&i===items.length-1?';grid-column:span 2':'')+'">'
+      + '<div style="font-size:12px;color:'+MUTED+'">'+esc(x[0])+'</div>'
+      + '<div style="font-size:14px;margin-top:4px;line-height:1.35">'+esc(x[1])+'</div></div>').join('');
+  }
+
+  /* ---------- AI ---------- */
+  async function askAI(prompt){
+    if(window.cowork&&typeof window.cowork.askClaude==='function'){ const r=await window.cowork.askClaude(prompt,[]); if(typeof r==='string')return r; if(r&&r.text)return r.text; if(r&&Array.isArray(r.content)&&r.content[0]&&r.content[0].text)return r.content[0].text; return String(r); }
+    if(db){
+      const res=await fetch(CONFIG.SUPABASE_URL+'/functions/v1/ai',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+CONFIG.SUPABASE_ANON_KEY,'apikey':CONFIG.SUPABASE_ANON_KEY},body:JSON.stringify({prompt,model:CONFIG.AI_MODEL,max_tokens:1800})});
+      const j=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(j.error||('AI request failed ('+res.status+'). Redeploy the "ai" function and set the ANTHROPIC_API_KEY secret.'));
+      return j.text||'';
+    }
+    if(CONFIG.ANTHROPIC_API_KEY&&CONFIG.ANTHROPIC_API_KEY.length>10){
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':CONFIG.ANTHROPIC_API_KEY,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:CONFIG.AI_MODEL,max_tokens:1800,messages:[{role:'user',content:prompt}]})});
+      if(!res.ok){ const t=await res.text(); throw new Error('AI request failed ('+res.status+'). '+t.slice(0,180)); }
+      const j=await res.json(); return (j.content&&j.content[0]&&j.content[0].text)||'';
+    }
+    throw new Error('AI is not set up.');
+  }
+  function extractJSON(txt){
+    if(!txt) return null;
+    let t=String(txt).trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+    const s=t.search(/[\[{]/); if(s<0) return null;
+    const open=t[s], close=open==='{'?'}':']';
+    let depth=0,end=-1,inStr=false,e2=false;
+    for(let i=s;i<t.length;i++){ const c=t[i];
+      if(inStr){ if(e2)e2=false; else if(c==='\\')e2=true; else if(c==='"')inStr=false; continue; }
+      if(c==='"'){ inStr=true; continue; }
+      if(c===open)depth++; else if(c===close){ depth--; if(depth===0){ end=i; break; } } }
+    if(end<0) return null;
+    try{ return JSON.parse(t.slice(s,end+1)); }catch(e){ return null; }
+  }
+
+  /* ---------- plan ---------- */
+  function renderPlanPicker(){
+    const box=$('planClassPick');
+    if(!state.classes.length){ box.innerHTML='<p style="font-size:14px;color:'+MUTED+';margin:0">Add classes on Home first.</p>'; return; }
+    box.innerHTML=state.classes.map(c=>{
+      const d=daysTo(c.nextTest);
+      return '<label style="display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #212823;border-radius:14px;background:'+CARD+';cursor:pointer">'
+        + '<input type="checkbox" value="'+c.id+'" checked="checked" style="width:17px;height:17px;accent-color:'+ACCENT+'" />'
+        + '<span style="font:600 15px \'Instrument Sans\'">'+esc(c.name)+'</span>'
+        + (d!=null?'<span style="margin-left:auto;font-size:13px;color:'+MUTED+'">'+(d<=0?'test now':'test in '+d+'d')+'</span>':'')
+        + '</label>';
+    }).join('');
+  }
+  $('genPlan').addEventListener('click',async()=>{
+    const btn=$('genPlan'), out=$('planOut'), err=$('planErr'); err.innerHTML='';
+    const picked=[...document.querySelectorAll('#planClassPick input:checked')].map(i=>i.value);
+    const chosen=state.classes.filter(c=>picked.includes(c.id));
+    const extra=$('planDeadlines').value.trim();
+    if(!chosen.length&&!extra){ err.innerHTML=errBox('Pick at least one class.'); return; }
+    const days=$('planDays').value, hours=$('planHours').value;
+    btn.disabled=true; const old=btn.textContent; btn.innerHTML=spinner()+' Building…';
+    out.innerHTML='<div style="background:'+CARD+';border:1px solid #212823;border-radius:18px;padding:22px;display:flex;align-items:center;gap:11px;color:'+MUTED+';font-size:14px">'+spinner(TEXT)+' Shaping a plan around your classes…</div>';
+    const prompt='You are Lock In, an AI study coach that helps students beat procrastination with plans tailored to how they actually study. Build a personalized '+days+'-day study plan.\nSTUDENT: '+(state.name||'a student')+' ('+state.level+').\nCLASSES TO COVER: '+(classContext(chosen)||'general study')+'.\nOTHER DEADLINES: '+(extra||'none')+'.\nSTUDY TIME PER DAY: '+hours+'.\nSTUDY PROFILE: '+prefsContext()+'\nUse their profile: schedule harder/nearer-deadline classes during their best focus time, size each work block near their attention span and preferred session length, and prefer the study methods they like. Directly counter their biggest distraction and lean on what motivates them. Keep tasks small, specific and achievable. Voice: punchy, direct, never cringe.\nRespond ONLY with valid JSON, no markdown:\n{"summary":"one motivating sentence","days":[{"day":"Day 1 (label)","focus":"theme","blocks":[{"time":"25 min","subject":"Biology","task":"specific task","technique":"Active recall"}]}],"tips":["tip","tip","tip"]}';
+    try{
+      const raw=await askAI(prompt); const plan=extractJSON(raw);
+      if(plan&&Array.isArray(plan.days)) renderPlan(plan);
+      else out.innerHTML='<div style="background:'+CARD+';border:1px solid #212823;border-radius:18px;padding:20px;white-space:pre-wrap;font-size:14px">'+esc(raw)+'</div>';
+      state.plans_made=(state.plans_made||0)+1; touchStreak(); save();
+    }catch(e){ out.innerHTML=''; err.innerHTML=errBox(e.message); }
+    finally{ btn.disabled=false; btn.innerHTML=old; }
+  });
+  function renderPlan(plan){
+    let h='';
+    if(plan.summary) h+='<div style="background:'+GREEN+';border-radius:16px;padding:18px;font:600 16px \'Instrument Sans\';line-height:1.45;margin-bottom:20px;color:#DCEDE4">'+esc(plan.summary)+'</div>';
+    plan.days.forEach(d=>{
+      h+='<div style="background:'+CARD+';border:1px solid #212823;border-radius:16px;padding:18px;margin-bottom:10px">'
+       + '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">'
+       + '<div style="font-family:\'Bricolage Grotesque\',sans-serif;font-weight:800;font-size:17px">'+esc(d.day||'Day')+'</div>'
+       + '<div style="font-size:13px;color:'+MUTED+';margin-left:auto">'+esc(d.focus||'')+'</div></div>';
+      (d.blocks||[]).forEach(b=>{
+        h+='<div style="display:flex;gap:14px;padding:14px 0 0">'
+         + '<div style="flex:0 0 60px;font:600 13px \'Instrument Sans\';color:'+MUTED+';padding-top:2px">'+esc(b.time||'')+'</div>'
+         + '<div style="flex:1"><div style="font:600 15px \'Instrument Sans\'">'+esc(b.subject||'')+'</div>'
+         + '<div style="font-size:14px;color:#B4BDB8;margin-top:3px;line-height:1.45">'+esc(b.task||'')+'</div>'
+         + (b.technique?'<div style="margin-top:7px;font-size:13px;color:'+ACCENT+'">'+esc(b.technique)+'</div>':'')
+         + '</div></div>';
+      });
+      h+='</div>';
+    });
+    if(Array.isArray(plan.tips)&&plan.tips.length)
+      h+='<div style="background:'+CARD+';border:1px solid #212823;border-radius:16px;padding:18px;margin-top:14px"><div style="font:600 13px \'Instrument Sans\';color:'+MUTED+';margin-bottom:10px">Beat the procrastination</div>'
+        + plan.tips.map(t=>'<div style="font-size:14px;line-height:1.5;margin-bottom:8px;color:#D6DCD9">'+esc(t)+'</div>').join('')+'</div>';
+    $('planOut').innerHTML=h;
+  }
+
+  /* ---------- reels ---------- */
+  let reelChoice='__mix__';
+  function renderReelPicker(){
+    const box=$('reelClassPick');
+    box.innerHTML='<button type="button" data-val="__mix__" data-on="1" style="'+pillStyle(true)+'">Mix it up</button>'
+      + state.classes.map(c=>'<button type="button" data-val="'+esc(c.name)+'" style="'+pillStyle(false)+'">'+esc(c.name)+'</button>').join('');
+    reelChoice='__mix__';
+    box.querySelectorAll('button').forEach(p=>p.addEventListener('click',()=>{
+      box.querySelectorAll('button').forEach(x=>{x.dataset.on='';x.style.cssText=pillStyle(false);});
+      p.dataset.on='1'; p.style.cssText=pillStyle(true); reelChoice=p.dataset.val;
+      if(reelChoice!=='__mix__') $('reelTopic').value='';
+    }));
+  }
+  $('reelExit').addEventListener('click',()=>{ $('reelViewport').style.display='none'; $('reelSetup').style.display='block'; });
+  $('genReels').addEventListener('click',async()=>{
+    const btn=$('genReels'), err=$('reelErr'), vp=$('reelViewport'), track=$('reelTrack'); err.innerHTML='';
+    let topic=$('reelTopic').value.trim(), scope=topic;
+    if(!scope) scope = reelChoice==='__mix__' ? classNames().join(', ') : reelChoice;
+    if(!scope){ err.innerHTML=errBox('Pick a class or type a topic.'); return; }
+    btn.disabled=true; const old=btn.textContent; btn.innerHTML=spinner()+' Loading…';
+    const prompt='You are Lock In, generating a feed of bite-sized study reels for '+(state.name||'a student')+' ('+state.level+'). Topic(s): '+scope+'. They like these study methods: '+((state.prefs.methods||[]).join(', ')||'quizzing')+'. Create '+REEL_N+' engaging reels mixing multiple-choice (4 options) and a couple flashcards. Punchy, varied difficulty, short memorable explanations. Respond ONLY with valid JSON array of '+REEL_N+' objects:\n[{"type":"mcq","topic":"label","question":"q","options":["A","B","C","D"],"answerIndex":0,"explanation":"why"},{"type":"flash","topic":"label","question":"term","answer":"ans","explanation":"context"}]';
+    try{
+      const raw=await askAI(prompt);
+      let cards=extractJSON(raw);
+      if(!Array.isArray(cards)) throw new Error("Couldn't generate reels — try again.");
+      cards=cards.filter(c=>c&&c.question);
+      if(!cards.length) throw new Error('No reels returned — try another topic.');
+      buildReels(cards);
+      $('reelSetup').style.display='none'; vp.style.display='block'; track.scrollTop=0;
+      touchStreak(); save();
+    }catch(e){ err.innerHTML=errBox(e.message); }
+    finally{ btn.disabled=false; btn.innerHTML=old; }
+  });
+  const optStyle = 'display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#F1F4F2;border-radius:14px;padding:15px 16px;margin-bottom:9px;font:500 15px \'Instrument Sans\';cursor:pointer;transition:.15s';
+  function buildReels(cards){
+    const track=$('reelTrack'); track.innerHTML='';
+    $('reelCount').textContent='1 / '+cards.length;
+    cards.forEach(c=>{
+      const reel=document.createElement('div');
+      reel.style.cssText='height:100%;scroll-snap-align:start;display:flex;flex-direction:column;justify-content:center;padding:52px 22px 48px;position:relative;color:#F1F4F2';
+      const tag='<div style="position:absolute;top:16px;left:20px;font:600 13px \'Instrument Sans\';color:#9EC4B4">'+esc(c.topic||(c.type==='flash'?'Flashcard':'Question'))+'</div>';
+      const swipe='<div style="position:absolute;bottom:16px;left:20px;font-size:13px;color:#6E8B7E">Swipe up ↑</div>';
+      if(c.type==='flash'){
+        reel.innerHTML=tag
+          + '<div data-q="1" style="font-family:\'Bricolage Grotesque\',sans-serif;font-weight:700;font-size:28px;line-height:1.2;letter-spacing:-.02em;cursor:pointer">'+esc(c.question)+'</div>'
+          + '<div style="font-size:13px;color:#6E8B7E;margin-top:12px">Tap to reveal</div>'
+          + '<div data-ans="1" style="display:none;background:rgba(255,255,255,.07);border-radius:14px;padding:18px;margin-top:18px"><div style="font:600 18px \'Instrument Sans\'">'+esc(c.answer||'')+'</div>'
+          + (c.explanation?'<div style="font-size:14px;color:#B4C9C0;margin-top:8px;line-height:1.5">'+esc(c.explanation)+'</div>':'')+'</div>'
+          + swipe;
+        const q=reel.querySelector('[data-q]'), ans=reel.querySelector('[data-ans]');
+        q.addEventListener('click',()=>{ if(ans.style.display==='block') return; ans.style.display='block'; ans.style.animation='fadeUp .2s ease'; recordReel(true); });
+      } else {
+        const opts=(c.options||[]).map((o,idx)=>'<button type="button" data-i="'+idx+'" style="'+optStyle+'"><span>'+esc(o)+'</span></button>').join('');
+        reel.innerHTML=tag
+          + '<div style="font-family:\'Bricolage Grotesque\',sans-serif;font-weight:700;font-size:25px;line-height:1.22;letter-spacing:-.02em;margin-bottom:22px">'+esc(c.question)+'</div>'
+          + '<div>'+opts+'</div>'
+          + '<div data-explain="1" style="display:none;background:rgba(255,255,255,.07);border-radius:14px;padding:14px 16px;margin-top:6px;font-size:14px;line-height:1.5;color:#CFDCD6"></div>'
+          + swipe;
+        const explain=reel.querySelector('[data-explain]'), ai=typeof c.answerIndex==='number'?c.answerIndex:0;
+        reel.querySelectorAll('[data-i]').forEach(b=>b.addEventListener('click',()=>{
+          const chosen=+b.dataset.i, ok=chosen===ai;
+          reel.querySelectorAll('[data-i]').forEach(x=>{
+            x.disabled=true; x.style.cursor='default';
+            if(+x.dataset.i===ai){ x.style.background=ACCENT; x.style.borderColor=ACCENT; x.style.color=BG; x.style.fontWeight='700'; }
+          });
+          if(!ok){ b.style.background=WRONG; b.style.borderColor=WRONG; b.style.color='#fff'; }
+          explain.innerHTML='<b style="color:'+(ok?ACCENT:WRONG)+'">'+(ok?'Nailed it. ':'Nope. ')+'</b>'+(c.explanation?esc(c.explanation):'');
+          explain.style.display='block'; explain.style.animation='fadeUp .2s ease';
+          recordReel(ok);
+        }));
+      }
+      track.appendChild(reel);
+    });
+    track.onscroll=()=>{ const i=Math.round(track.scrollTop/track.clientHeight)+1; $('reelCount').textContent=Math.min(i,cards.length)+' / '+cards.length; };
+  }
+  function recordReel(correct){
+    state.reels_answered=(state.reels_answered||0)+1;
+    if(correct) state.reels_correct=(state.reels_correct||0)+1;
+    const t=todayStr(); state.daily[t]=(state.daily[t]||0)+1; save();
+  }
+
+  /* ---------- progress ---------- */
+  let chart=null;
+  function renderProgress(){
+    $('stStreak').textContent=state.streak||0;
+    $('stPlans').textContent=state.plans_made||0;
+    $('stReels').textContent=state.reels_answered||0;
+    const acc=state.reels_answered?Math.round(100*state.reels_correct/state.reels_answered):null;
+    $('stAcc').textContent = acc==null?'—':acc+'%';
+    const labels=[],data=[],colors=[];
+    weekKeys().forEach((d,i)=>{ labels.push(new Date(d.key+'T00:00:00').toLocaleDateString(undefined,{weekday:'short'})); data.push(state.daily[d.key]||0); colors.push(i===6?ACCENT:'#2A3B33'); });
+    if(chart) chart.destroy();
+    chart=new window.Chart($('actChart'),{type:'bar',data:{labels,datasets:[{data,backgroundColor:colors,borderRadius:8,maxBarThickness:34}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#1A1F1C',padding:10,displayColors:false}},
+      scales:{y:{beginAtZero:true,ticks:{precision:0,color:MUTED,font:{family:'Instrument Sans'}},grid:{color:'#1D231F',drawTicks:false},border:{display:false}},
+              x:{ticks:{color:MUTED,font:{family:'Instrument Sans'}},grid:{display:false},border:{display:false}}}}});
+  }
+  $('genFeedback').addEventListener('click',async()=>{
+    const btn=$('genFeedback'), box=$('feedbackText');
+    const acc=state.reels_answered?Math.round(100*state.reels_correct/state.reels_answered):0;
+    btn.disabled=true; const old=btn.textContent; btn.innerHTML=spinner()+' Thinking…'; box.textContent='';
+    const prompt='You are Lock In, an encouraging but honest AI study coach. Give '+(state.name||'the student')+' short personal feedback (3-4 sentences, warm, punchy, no bullet lists, no cringe slang). Note one win and one concrete next step to reduce procrastination, tuned to their profile.\nCLASSES: '+classContext()+'. PROFILE: '+prefsContext()+'\nSTATS — streak: '+(state.streak||0)+' days, plans made: '+(state.plans_made||0)+', reels answered: '+(state.reels_answered||0)+', accuracy: '+acc+'%.';
+    try{ const txt=await askAI(prompt); box.textContent=(txt||'').trim()||'Keep going — consistency beats intensity.'; }
+    catch(e){ box.textContent=e.message; }
+    finally{ btn.disabled=false; btn.innerHTML=old; }
+  });
+  }
+}
+</script>
+</body>
+</html>
