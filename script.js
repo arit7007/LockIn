@@ -7,6 +7,33 @@ const gate = document.getElementById('gate'), onboard = document.getElementById(
 const todayStr = () => new Date().toISOString().slice(0, 10);
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 function uid() { return Math.random().toString(36).slice(2, 9); }
+function icon(name, size) { const s = size || 20; return '<svg width="' + s + '" height="' + s + '" aria-hidden="true"><use href="#i-' + name + '"/></svg>'; }
+
+const SUBJECT_COLORS = [
+  { bg: '#6C4DF6', fg: '#fff', dark: '#4227C4' },
+  { bg: '#FF7A45', fg: '#fff', dark: '#C9501E' },
+  { bg: '#12BF9D', fg: '#06392E', dark: '#0A8A70' },
+  { bg: '#FFC736', fg: '#4A3600', dark: '#C99200' },
+  { bg: '#FF5C8A', fg: '#fff', dark: '#C92E5C' },
+  { bg: '#3DA5FF', fg: '#fff', dark: '#1A72C4' }
+];
+function subjectColor(name) {
+  let h = 0; const s = String(name || '');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return SUBJECT_COLORS[h % SUBJECT_COLORS.length];
+}
+function subjectIcon(name) {
+  const n = String(name || '').toLowerCase();
+  if (/bio|chem|physic|science|anatomy|lab/.test(n)) return 'flask';
+  if (/math|calc|algebra|geometr|stat|trig|precal/.test(n)) return 'atom';
+  if (/history|geo|social|civic|gov|econ|world/.test(n)) return 'globe';
+  return 'book';
+}
+function subjectBadge(name, small) {
+  const c = subjectColor(name);
+  return '<div class="subject-badge' + (small ? ' sm' : '') + '" style="background:' + c.bg + ';color:' + c.fg + ';box-shadow:0 4px 0 ' + c.dark + '">' + icon(subjectIcon(name), small ? 15 : 20) + '</div>';
+}
+
 let user = null, state = null;
 
 function blankState() {
@@ -192,9 +219,15 @@ function classRowHTML(c, opts) {
   opts = opts || {};
   const bcls = c.difficulty === 'hard' ? 'b-hard' : c.difficulty === 'easy' ? 'b-easy' : 'b-med';
   const meta = c.nextTest ? ('Test: ' + c.nextTest) : '';
-  let html = '<div class="classitem"><div class="grow"><span class="cname">' + esc(c.name) + '</span><span class="badge ' + bcls + '">' + esc(c.difficulty || 'medium') + '</span><div class="cmeta">' + esc(meta) + '</div></div>';
-  if (opts.editable) html += '<button class="notes-toggle" data-id="' + c.id + '" title="Add notes">&#128221;</button>';
-  html += '<button class="rm" data-id="' + c.id + '" title="Remove">&times;</button></div>';
+  let html = '<div class="classitem">' + subjectBadge(c.name)
+    + '<div class="grow"><div class="cname">' + esc(c.name) + '</div>'
+    + '<div class="cmeta"><span class="badge ' + bcls + '">' + esc(c.difficulty || 'medium') + '</span>'
+    + (meta ? '<span style="white-space:nowrap">' + esc(meta) + '</span>' : '') + '</div></div>';
+  if (opts.editable) {
+    html += '<button class="path-btn" data-id="' + c.id + '" title="Open class path">' + icon('trail', 17) + '</button>';
+    html += '<button class="notes-toggle" data-id="' + c.id + '" title="Add notes">' + icon('note', 17) + '</button>';
+  }
+  html += '<button class="rm" data-id="' + c.id + '" title="Remove">' + icon('x', 17) + '</button></div>';
   if (opts.editable) {
     html += '<div class="class-notes" id="classNotes-' + c.id + '" style="display:none">'
       + '<textarea id="classNotesInput-' + c.id + '" rows="3" placeholder="Paste your syllabus, notes, or anything Lock In should know about this class">' + esc(c.context || '') + '</textarea>'
@@ -317,6 +350,7 @@ function renderHomeClasses() {
     const panel = document.getElementById('classNotes-' + b.dataset.id);
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
   }));
+  box.querySelectorAll('.path-btn').forEach(b => b.addEventListener('click', () => openClassPath(b.dataset.id)));
   box.querySelectorAll('.save-notes').forEach(b => b.addEventListener('click', async () => {
     const id = b.dataset.id;
     const context = document.getElementById('classNotesInput-' + id).value.trim();
@@ -380,16 +414,154 @@ function extractJSON(txt) {
 }
 
 const tabs = document.querySelectorAll('.tab'), panels = document.querySelectorAll('.panel');
+function showPanel(name) {
+  panels.forEach(p => p.classList.toggle('active', p.id === name));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 function goTab(name) {
   tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
-  panels.forEach(p => p.classList.toggle('active', p.id === name));
+  showPanel(name);
   if (name === 'plan') renderPlanPicker();
   if (name === 'reels') renderReelPicker();
   if (name === 'progress') renderProgress();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 tabs.forEach(t => t.addEventListener('click', () => goTab(t.dataset.tab)));
 document.querySelectorAll('[data-go]').forEach(el => el.addEventListener('click', () => goTab(el.dataset.go)));
+document.getElementById('pathBack').addEventListener('click', () => goTab('home'));
+
+/* ---------- class path: a winding trail through one class's topics ---------- */
+const TRAIL_W = 350, NODE_GAP = 170, TRAIL_X = [175, 100, 175, 250];
+let pathTopicLabel = '';
+
+function classTopics(id) { return ((state.prefs && state.prefs.class_topics) || {})[id] || null; }
+function setClassTopics(id, topics) {
+  if (!state.prefs) state.prefs = {};
+  if (!state.prefs.class_topics) state.prefs.class_topics = {};
+  state.prefs.class_topics[id] = topics;
+  save();
+}
+function masteryFor(topic) {
+  const m = state.topic_mastery || {};
+  if (m[topic]) return m[topic];
+  const key = Object.keys(m).find(k => k.toLowerCase() === String(topic).toLowerCase());
+  return key ? m[key] : null;
+}
+function topicState(topic) {
+  const m = masteryFor(topic);
+  if (!m || !m.total) return 'new';
+  return (m.correct / m.total) >= 0.6 ? 'done' : 'weak';
+}
+async function generateClassTopics(cls) {
+  const prompt = 'You are Lock In, a study app. List the core topics of the class "' + cls.name + '" for a ' + state.level + ' student, in the order they are normally taught.'
+    + (cls.context ? ' Base it on these notes from the student: ' + cls.context.slice(0, 1200) : '')
+    + ' Give between 5 and 8 topics. Each topic is 1-4 words and specific enough to quiz on. Respond ONLY with valid JSON, no markdown: {"topics":["string"]}';
+  const parsed = extractJSON(await askAI(prompt));
+  const topics = parsed && Array.isArray(parsed.topics)
+    ? parsed.topics.filter(t => typeof t === 'string' && t.trim()).map(t => t.trim()).slice(0, 8) : [];
+  if (!topics.length) throw new Error('The AI did not return any topics for this class. Try again.');
+  return topics;
+}
+async function openClassPath(id) {
+  const cls = state.classes.find(c => c.id === id);
+  if (!cls) return;
+  const col = subjectColor(cls.name), badge = document.getElementById('pathBadge');
+  badge.style.background = col.bg; badge.style.color = col.fg; badge.style.boxShadow = '0 4px 0 ' + col.dark;
+  badge.innerHTML = icon(subjectIcon(cls.name), 20);
+  document.getElementById('pathTitle').textContent = cls.name;
+  document.getElementById('pathMeta').textContent = (cls.difficulty || 'medium') + (cls.nextTest ? ' · test ' + cls.nextTest : '');
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === 'home'));
+  showPanel('classpath');
+  const trail = document.getElementById('pathTrail'), side = document.getElementById('pathSide');
+  let topics = classTopics(id);
+  if (!topics || !topics.length) {
+    trail.innerHTML = '<div class="loading"><span class="spinner"></span> Mapping out the topics in this class...</div>';
+    side.innerHTML = '';
+    try {
+      topics = await generateClassTopics(cls);
+      setClassTopics(id, topics);
+    } catch (e) {
+      trail.innerHTML = '<div class="err">' + esc(e.message || 'Could not build a path for this class yet.') + '</div>';
+      side.innerHTML = '<button class="btn ghost block" id="pathRetry">Try again</button>';
+      document.getElementById('pathRetry').addEventListener('click', () => openClassPath(id));
+      return;
+    }
+  }
+  renderClassPath(cls, topics);
+}
+function renderClassPath(cls, topics) {
+  const n = topics.length, states = topics.map(topicState);
+  const doneCount = states.filter(s => s === 'done').length;
+  const allDone = doneCount === n;
+  let currentIdx = states.findIndex(s => s !== 'done');
+  if (currentIdx < 0) currentIdx = n - 1;
+
+  const trophyY = 46, firstY = trophyY + 140, pos = [];
+  for (let k = 0; k < n; k++) pos[n - 1 - k] = { x: TRAIL_X[k % TRAIL_X.length], y: firstY + k * NODE_GAP };
+  const startY = firstY + (n - 1) * NODE_GAP + 128, height = startY + 50;
+
+  const pts = [{ x: 175, y: startY }].concat(pos, [{ x: 175, y: trophyY }]);
+  const seg = (a, b) => { const mid = (a.y + b.y) / 2; return 'C' + a.x + ',' + mid + ' ' + b.x + ',' + mid + ' ' + b.x + ',' + b.y; };
+  const line = (from, to) => { let d = 'M' + pts[from].x + ',' + pts[from].y; for (let i = from + 1; i <= to; i++) d += seg(pts[i - 1], pts[i]); return d; };
+  const cut = allDone ? pts.length - 1 : currentIdx + 1;
+  const pct = x => (x / TRAIL_W * 100).toFixed(2) + '%';
+
+  let html = '<div class="trail" style="height:' + height + 'px">';
+  html += '<svg class="line" viewBox="0 0 ' + TRAIL_W + ' ' + height + '" preserveAspectRatio="none">';
+  html += '<path d="' + line(0, cut) + '" fill="none" stroke="#12BF9D" stroke-width="13" stroke-linecap="round"/>';
+  if (cut < pts.length - 1) html += '<path d="' + line(cut, pts.length - 1) + '" fill="none" stroke="#E0CFB6" stroke-width="13" stroke-linecap="round" stroke-dasharray="1 24"/>';
+  html += '</svg>';
+
+  html += '<div class="trophy" style="left:calc(50% - 44px);top:' + (trophyY - 44) + 'px' + (allDone ? ';background:#FFC736;color:#4A3600;box-shadow:0 6px 0 #C99200' : '') + '">'
+    + icon('trophy', 30) + '<span' + (allDone ? ' style="color:#4A3600"' : '') + '>Mastered</span></div>';
+
+  topics.forEach((t, i) => {
+    const p = pos[i], st = states[i], isCur = !allDone && i === currentIdx;
+    const cl = isCur ? 'node current' : st === 'done' ? 'node done' : st === 'weak' ? 'node weak' : 'node';
+    const ic = isCur ? 'play' : st === 'done' ? 'check' : st === 'weak' ? 'redo' : 'lock';
+    const half = isCur ? 42 : 36;
+    const m = masteryFor(t);
+    const sub = m && m.total
+      ? Math.round(100 * m.correct / m.total) + '% mastery'
+      : (isCur ? 'Start here' : 'Not practised yet');
+    if (isCur) html += '<div class="node-ring" style="left:calc(' + pct(p.x) + ' - 52px);top:' + (p.y - 52) + 'px;width:104px;height:104px"></div>';
+    html += '<button class="' + cl + '" data-topic="' + esc(t) + '" style="left:calc(' + pct(p.x) + ' - ' + half + 'px);top:' + (p.y - half) + 'px">' + icon(ic, 26) + '</button>';
+    html += '<div class="node-label" style="left:calc(' + pct(p.x) + ' - 80px);top:' + (p.y + half + 10) + 'px"><b>' + esc(t) + '</b><br><small>' + esc(sub) + '</small></div>';
+    if (isCur) {
+      const tagX = p.x <= 175 ? 'calc(' + pct(p.x) + ' + 52px)' : 'calc(' + pct(p.x) + ' - 162px)';
+      html += '<div class="here-tag" style="left:' + tagX + ';top:' + (p.y - 19) + 'px">You\'re here</div>';
+    }
+  });
+
+  html += '<div class="path-start" style="left:calc(50% - 32px);top:' + (startY - 12) + 'px">' + icon('flag', 18) + 'Start</div>';
+  html += '</div>';
+
+  const trail = document.getElementById('pathTrail');
+  trail.innerHTML = html;
+  trail.querySelectorAll('.node').forEach(b => b.addEventListener('click', () => startTopicReels(b.dataset.topic)));
+
+  let side = '<div class="card"><h2>' + doneCount + ' of ' + n + ' topics</h2>'
+    + '<div class="progressbar"><i style="width:' + Math.round(100 * doneCount / n) + '%"></i></div>'
+    + '<p class="sub" style="margin:10px 0 0">Each topic turns green once you answer its reels above 60%. Weak ones turn orange and get priority in your next plan.</p></div>';
+  if (allDone) {
+    side += '<div class="card" style="background:var(--teal-tint)"><h2>Path complete</h2><p class="sub" style="margin:6px 0 0">Every topic in ' + esc(cls.name) + ' is above 60%. Run a mixed set to keep it sharp.</p>'
+      + '<button class="btn block" id="pathStart">Practice a mixed set</button></div>';
+  } else {
+    side += '<div class="card" style="background:var(--violet-tint)"><h2>Up next</h2>'
+      + '<p style="margin:6px 0 0;font-family:var(--display);font-weight:800;font-size:18px">' + esc(topics[currentIdx]) + '</p>'
+      + '<button class="btn block" id="pathStart">Practice this topic</button></div>';
+  }
+  document.getElementById('pathSide').innerHTML = side;
+  document.getElementById('pathStart').addEventListener('click', () => startTopicReels(allDone ? cls.name : topics[currentIdx]));
+}
+function startTopicReels(topic) {
+  pathTopicLabel = topic;
+  goTab('reels');
+  document.getElementById('reelTopic').value = topic;
+  document.getElementById('genReels').click();
+}
+document.getElementById('reelTopic').addEventListener('input', e => {
+  if (e.target.value.trim() !== pathTopicLabel) pathTopicLabel = '';
+});
 
 function renderPlanPicker() {
   const box = document.getElementById('planClassPick');
@@ -485,8 +657,8 @@ function renderPlan(plan, source) {
   let html = '<div class="card"><h2>Your personalized plan</h2>';
   if (source === 'fallback') html += '<p class="hint">AI is temporarily unavailable — here\'s a plan built from your profile instead.</p>';
   if (plan.summary) html += '<div class="plan-summary">' + esc(plan.summary) + '</div>';
-  plan.days.forEach(d => {
-    html += '<div class="day"><div class="day-head"><span>' + esc(d.day || 'Day') + '</span><span class="focus">' + esc(d.focus || '') + '</span></div>';
+  plan.days.forEach((d, di) => {
+    html += '<div class="day d' + (di % 3) + '"><div class="day-head"><span>' + esc(d.day || 'Day') + '</span><span class="focus">' + esc(d.focus || '') + '</span></div>';
     (d.blocks || []).forEach(b => {
       html += '<div class="block"><div class="time">' + esc(b.time || '') + '</div><div class="body"><div class="subj">' + esc(b.subject || '') + '</div><div class="task">' + esc(b.task || '') + '</div>' + (b.technique ? '<span class="tech">' + esc(b.technique) + '</span>' : '') + '</div></div>';
     });
@@ -518,7 +690,8 @@ document.getElementById('genReels').addEventListener('click', async () => {
   if (!scope) { err.innerHTML = '<div class="err">Pick a class or type a topic.</div>'; return; }
   btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Loading...';
   const weak = weakTopicsSummary();
-  const prompt = 'You are Lock In, generating a feed of bite-sized study reels for ' + (state.name || 'a student') + ' (' + state.level + '). Topic(s): ' + scope + '. They like these study methods: ' + ((state.prefs.methods || []).join(', ') || 'quizzing') + '.' + (weak ? ' They have historically struggled with: ' + weak + ' — weight questions toward these when relevant to the chosen topic(s).' : '') + ' Create 6 engaging reels mixing multiple-choice (4 options) and a couple flashcards. Punchy, social-media friendly, varied difficulty, short memorable explanations. Respond ONLY with valid JSON array of 6 objects:\n[{"type":"mcq","topic":"label","question":"q","options":["A","B","C","D"],"answerIndex":0,"explanation":"why"},{"type":"flash","topic":"label","question":"term","answer":"ans","explanation":"context"}]';
+  const forced = (pathTopicLabel && topic === pathTopicLabel) ? ' Use exactly this string as the "topic" field of every reel: "' + pathTopicLabel + '".' : '';
+  const prompt = 'You are Lock In, generating a feed of bite-sized study reels for ' + (state.name || 'a student') + ' (' + state.level + '). Topic(s): ' + scope + '. They like these study methods: ' + ((state.prefs.methods || []).join(', ') || 'quizzing') + '.' + (weak ? ' They have historically struggled with: ' + weak + ' — weight questions toward these when relevant to the chosen topic(s).' : '') + forced + ' Create 6 engaging reels mixing multiple-choice (4 options) and a couple flashcards. Punchy, social-media friendly, varied difficulty, short memorable explanations. Respond ONLY with valid JSON array of 6 objects:\n[{"type":"mcq","topic":"label","question":"q","options":["A","B","C","D"],"answerIndex":0,"explanation":"why"},{"type":"flash","topic":"label","question":"term","answer":"ans","explanation":"context"}]';
   try {
     const raw = await askAI(prompt);
     let cards = extractJSON(raw);
@@ -576,20 +749,60 @@ function recordReel(correct, topic) {
 
 let chart = null;
 function renderProgress() {
-  document.getElementById('stStreak').textContent = state.streak || 0;
+  const streak = state.streak || 0;
+  document.getElementById('stStreak').textContent = streak;
   document.getElementById('stPlans').textContent = state.plans_made || 0;
   document.getElementById('stReels').textContent = state.reels_answered || 0;
   const acc = state.reels_answered ? Math.round(100 * state.reels_correct / state.reels_answered) : null;
   document.getElementById('stAcc').textContent = acc == null ? '-' : acc + '%';
-  const labels = [], data = [];
+  document.getElementById('streakDays').textContent = streak;
+  document.getElementById('streakCap').textContent = state.last_active === todayStr()
+    ? 'Locked in today. Keep it rolling.'
+    : (streak ? 'Answer one reel today to keep it alive.' : 'Answer a reel or build a plan to start your streak.');
+
+  const labels = [], data = [], dots = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(Date.now() - i * 864e5), key = d.toISOString().slice(0, 10);
-    labels.push(d.toLocaleDateString(undefined, { weekday: 'short' }));
-    data.push(state.daily[key] || 0);
+    const short = d.toLocaleDateString(undefined, { weekday: 'short' });
+    const count = state.daily[key] || 0;
+    labels.push(short); data.push(count);
+    dots.push('<span class="daydot' + (count ? ' on' : '') + '">' + esc(short.slice(0, 1)) + '</span>');
   }
+  document.getElementById('weekRow').innerHTML = dots.join('');
+  renderWeakList();
   const ctx = document.getElementById('actChart');
   if (chart) chart.destroy();
-  chart = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Reels', data, backgroundColor: '#3a7d4d', borderRadius: 8, maxBarThickness: 44 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: '#5f7059' }, grid: { color: '#d3dac8' } }, x: { ticks: { color: '#5f7059' }, grid: { display: false } } } } });
+  chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: 'Reels', data, backgroundColor: '#FFC736', borderColor: '#241748', borderWidth: 3, borderRadius: 10, maxBarThickness: 46 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0, color: '#7C6E99', font: { family: 'Nunito', weight: '800' } }, grid: { color: '#F0E2CC' } },
+        x: { ticks: { color: '#7C6E99', font: { family: 'Nunito', weight: '800' } }, grid: { display: false } }
+      }
+    }
+  });
+}
+function topicStats(limit) {
+  const mastery = state.topic_mastery || {};
+  return Object.keys(mastery)
+    .map(topic => ({ topic, correct: mastery[topic].correct || 0, total: mastery[topic].total || 0 }))
+    .filter(t => t.total >= 2)
+    .sort((a, b) => (a.correct / a.total) - (b.correct / b.total))
+    .slice(0, limit || 5);
+}
+function renderWeakList() {
+  const box = document.getElementById('weakList');
+  const rows = topicStats(5).filter(t => t.correct / t.total < 0.8);
+  if (!rows.length) { box.innerHTML = '<p class="hint">Answer a few reels and the topics you keep missing will show up here.</p>'; return; }
+  box.innerHTML = rows.map(t => {
+    const pct = Math.round(100 * t.correct / t.total);
+    return '<div class="weakrow">' + subjectBadge(t.topic, true)
+      + '<div style="flex:1;min-width:0"><div class="wn">' + esc(t.topic) + '</div>'
+      + '<div class="progressbar"><i style="width:' + pct + '%;background:' + (pct < 60 ? '#FF7A45' : '#FFC736') + '"></i></div></div>'
+      + '<span class="badge ' + (pct < 60 ? 'b-hard' : 'b-med') + '" style="margin:0">' + pct + '%</span></div>';
+  }).join('');
 }
 document.getElementById('genFeedback').addEventListener('click', async () => {
   const btn = document.getElementById('genFeedback'), box = document.getElementById('feedbackText');

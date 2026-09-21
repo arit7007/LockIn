@@ -4,15 +4,62 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lock In — Unlock Your Best Self</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 </head>
 <body>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 48 48">
+    <rect x="3" y="23" width="42" height="20" rx="4" fill="#FFC736" stroke="#241748" stroke-width="2.6"/>
+    <path d="M24 27V43" fill="none" stroke="#241748" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M8.5 38C12.5 35 18 35 22 37" fill="none" stroke="#241748" stroke-width="2" stroke-linecap="round"/>
+    <path d="M39.5 38C35.5 35 30 35 26 37" fill="none" stroke="#241748" stroke-width="2" stroke-linecap="round"/>
+    <path d="M13 14v10c0 4 5 6.5 11 6.5s11-2.5 11-6.5V14z" fill="#5B3AE0" stroke="#241748" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M24 4l21 8.5L24 21 3 12.5z" fill="#6C4DF6" stroke="#241748" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M29.5 11.5C33 13 34.5 16 34.5 19" fill="none" stroke="#241748" stroke-width="5.4" stroke-linecap="round"/>
+    <path d="M29.5 11.5C33 13 34.5 16 34.5 19" fill="none" stroke="#FFFDF8" stroke-width="2.6" stroke-linecap="round"/>
+    <ellipse cx="28" cy="10.5" rx="3.2" ry="2.6" fill="#FFFDF8" stroke="#241748" stroke-width="2.2"/>
+    <path d="M34.5 17.5c2.7 0 3.7 2.3 3.1 4.9-.4 2-1.6 3.6-3.1 3.6s-2.7-1.6-3.1-3.6c-.6-2.6.4-4.9 3.1-4.9z" fill="#FFFDF8" stroke="#241748" stroke-width="2.2" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-flame" viewBox="0 0 32 40">
+    <path d="M14.5 2s4.5 6.5 5 12c1-2 2-3.5 3.5-4.5 0 0 3 3.5 4 8 .8 3.5 1 6 1 8.5 0 6.6-5.4 12-12 12S4 32.6 4 26c0-4 1.5-8 4.5-11.5.5 2 1.3 3.5 2.5 4.5 0-4 1-11 3.5-17z" fill="#FF7A45" stroke="#241748" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M18 16s4 5 4.5 9.5c.5 5-2.5 9-6.5 9s-6.5-3-6.5-7c0-2.5 1.3-4.7 3-6 .3 1.5.9 2.5 1.7 3.1-.2-3.1 1.4-6.6 3.8-8.6z" fill="#FFC736" stroke="#241748" stroke-width="2.4" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-flame-warm" viewBox="0 0 32 40">
+    <path d="M14.5 2s4.5 6.5 5 12c1-2 2-3.5 3.5-4.5 0 0 3 3.5 4 8 .8 3.5 1 6 1 8.5 0 6.6-5.4 12-12 12S4 32.6 4 26c0-4 1.5-8 4.5-11.5.5 2 1.3 3.5 2.5 4.5 0-4 1-11 3.5-17z" fill="#FFC736" stroke="#241748" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M18 16s4 5 4.5 9.5c.5 5-2.5 9-6.5 9s-6.5-3-6.5-7c0-2.5 1.3-4.7 3-6 .3 1.5.9 2.5 1.7 3.1-.2-3.1 1.4-6.6 3.8-8.6z" fill="#FFF1CF" stroke="#241748" stroke-width="2.4" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="i-house" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5.5 10v9.5h13V10"/><path d="M9.8 19.5V14h4.4v5.5"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5h5.5A2.5 2.5 0 0 1 12 7v12a2.5 2.5 0 0 0-2.5-2H4z"/><path d="M20 4.5h-5.5A2.5 2.5 0 0 0 12 7v12a2.5 2.5 0 0 1 2.5-2H20z"/></symbol>
+  <symbol id="i-cards" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><rect x="3.5" y="4.5" width="11" height="15" rx="3"/><path d="M17.5 7.5h.5a2.5 2.5 0 0 1 2.5 2.5v7a2.5 2.5 0 0 1-2.5 2.5h-.5"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M5 19.5V13"/><path d="M12 19.5V5"/><path d="M19 19.5v-4.5"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 2l2.3 6.6L21 11l-6.7 2.4L12 20l-2.3-6.6L3 11l6.7-2.4z" fill="currentColor"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4.5L7.5 12 15 19.5"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="13.5" rx="3.5"/><circle cx="12" cy="13.8" r="3.6"/><path d="M8.5 7l1.4-3h4.2l1.4 3"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 5.5H4.5V8a3 3 0 0 0 3 3M17 5.5h2.5V8a3 3 0 0 1-3 3"/><path d="M12 14v3.5M8.5 20h7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="3"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5l11 6.5-11 6.5z" fill="currentColor" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12a7 7 0 1 1-2.5-5.4"/><path d="M19.5 4v4.5H15"/></symbol>
+  <symbol id="i-flag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 21V4"/><path d="M6.5 5h11l-2.2 4 2.2 4h-11" fill="currentColor"/></symbol>
+  <symbol id="i-trail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><circle cx="6.5" cy="18.5" r="2.6"/><circle cx="17.5" cy="5.5" r="2.6"/><path d="M9 17c4-1.5 3-6 6-7" stroke-dasharray="1 3.4"/></symbol>
+  <symbol id="i-note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5l4 4L9 19H5v-4z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 3v6.5L4.5 19a1.8 1.8 0 0 0 1.6 2.5h11.8A1.8 1.8 0 0 0 19.5 19l-5-9.5V3"/><path d="M8 3h8M7.5 14h9"/></symbol>
+  <symbol id="i-atom" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><ellipse cx="12" cy="12" rx="9.5" ry="4"/><ellipse cx="12" cy="12" rx="9.5" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="4" transform="rotate(120 12 12)"/><circle cx="12" cy="12" r="2" fill="currentColor"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><ellipse cx="12" cy="12" rx="4" ry="9"/></symbol>
+</svg>
+
 <div id="gate">
   <div class="authcard">
     <div class="authhead">
-      <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M32 8 L58 20 L32 32 L6 20 Z" fill="#173d22"/><path d="M52 24 v10" stroke="#173d22" stroke-width="2.5" stroke-linecap="round"/><circle cx="52" cy="37" r="3" fill="#173d22"/><path d="M22 30 h20 v14 l-10 12 -10 -12 Z" fill="#f4f6ee" stroke="#173d22" stroke-width="2.5"/><path d="M22 44 h20 l-10 12 Z" fill="#173d22"/><path d="M28 30 v11 M32 30 v13 M36 30 v11" stroke="#173d22" stroke-width="2"/></svg>
+      <div class="logo-badge"><svg width="48" height="48"><use href="#i-logo"/></svg></div>
       <h1>Lock In</h1><p>Unlock your best self.</p>
     </div>
     <div id="configWarn"></div>
@@ -23,42 +70,45 @@
     <div id="authMsg"></div>
   </div>
 </div>
+
 <div id="onboard">
   <div class="card">
     <div class="progress"><div class="seg on"></div><div class="seg"></div><div class="seg"></div></div>
     <div class="stepnum" id="stepLabel">Step 1 of 3 &middot; About you</div>
     <div class="wstep active" data-step="1">
-      <h2 style="color:var(--green);margin:6px 0 2px">Welcome to Lock In</h2>
-      <p class="sub" style="color:var(--muted)">Let's build your profile so everything is personalized to you.</p>
+      <h2>Welcome to Lock In</h2>
+      <p class="sub">Let's build your profile so everything is personalized to you.</p>
       <label>What's your name?</label><input id="oName" placeholder="e.g. Alex">
       <label>What grade level are you?</label>
       <div class="opts-wrap" id="oLevel" data-single="Middle school|High school|College|Other"></div>
       <div class="wnav"><button class="btn" id="s1next">Next</button></div>
     </div>
     <div class="wstep" data-step="2">
-      <h2 style="color:var(--green);margin:6px 0 2px">Your classes</h2>
-      <p class="sub" style="color:var(--muted)">Add the classes you're taking right now. Include how hard each feels and any upcoming test.</p>
+      <h2>Your classes</h2>
+      <p class="sub">Add the classes you're taking right now. Include how hard each feels and any upcoming test.</p>
       <div class="row" style="align-items:flex-end">
         <div style="flex:2"><label>Class name</label><input id="cName" placeholder="e.g. AP Biology"></div>
         <div style="flex:1"><label>Difficulty</label><select id="cDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
       </div>
       <label>Next test / big deadline (optional)</label><input id="cDate" type="date">
-      <button class="btn ghost sm" id="addClass" style="margin-top:12px">+ Add class</button>
-      <button type="button" class="btn ghost sm" id="scanScheduleBtn" style="margin-top:12px">&#128247; Scan a schedule instead</button>
+      <div class="row" style="margin-top:14px">
+        <button class="btn sm" id="addClass"><svg width="15" height="15"><use href="#i-plus"/></svg> Add class</button>
+        <button type="button" class="btn ghost sm" id="scanScheduleBtn"><svg width="16" height="16"><use href="#i-camera"/></svg> Scan a schedule</button>
+      </div>
       <input type="file" id="scheduleFile" accept="image/*" capture="environment" style="display:none">
       <div id="scanStatus"></div>
       <div class="classlist" id="classList"></div><div id="classErr"></div>
       <div class="wnav"><button class="btn ghost" id="s2back">Back</button><button class="btn" id="s2next">Next</button></div>
     </div>
     <div class="wstep" data-step="3">
-      <h2 style="color:var(--green);margin:6px 0 2px">How you study</h2>
-      <p class="sub" style="color:var(--muted)">Two quick ones so your plans and reels fit how you learn.</p>
+      <h2>How you study</h2>
+      <p class="sub">Two quick ones so your plans and reels fit how you learn.</p>
       <label>When do you focus best?</label>
       <div class="opts-wrap" id="qFocus" data-single="Early morning|Afternoon|Evening|Late night"></div>
       <label>Which study methods do you like? (pick any)</label>
       <div class="opts-wrap" id="qMethods" data-multi="Flashcards|Practice problems|Watching videos|Rereading notes|Teaching someone|Mind maps|Quizzing myself|Group study"></div>
       <label>Your main goal right now (optional)</label><input id="qGoal" placeholder="e.g. Raise my Biology grade to an A before finals">
-      <button type="button" id="toggleMorePrefs" class="btn ghost sm" style="margin-top:14px">+ Add more about how you study (optional)</button>
+      <button type="button" id="toggleMorePrefs" class="btn ghost sm" style="margin-top:16px">+ Add more about how you study (optional)</button>
       <div id="morePrefs" class="more-prefs">
         <label>How long can you focus before getting distracted?</label>
         <div class="opts-wrap" id="qAttention" data-single="~15 min|~25 min|~45 min|60+ min"></div>
@@ -74,55 +124,108 @@
     </div>
   </div>
 </div>
-<div id="app"><div class="wrap">
-  <div class="topbar">
-    <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M32 8 L58 20 L32 32 L6 20 Z" fill="#173d22"/><path d="M52 24 v10" stroke="#173d22" stroke-width="2.5" stroke-linecap="round"/><circle cx="52" cy="37" r="3" fill="#173d22"/><path d="M22 30 h20 v14 l-10 12 -10 -12 Z" fill="#f4f6ee" stroke="#173d22" stroke-width="2.5"/><path d="M22 44 h20 l-10 12 Z" fill="#173d22"/><path d="M28 30 v11 M32 30 v13 M36 30 v11" stroke="#173d22" stroke-width="2"/></svg>
-    <div class="brand"><h1>Lock In</h1><p>Unlock your best self.</p></div>
-    <div class="userbox"><div class="streakpill">&#128293; <span id="streakNum">0</span></div><span class="usermail" id="userMail"></span><button class="logout" id="logoutBtn">Log out</button></div>
-  </div>
-  <div class="tabs"><button class="tab active" data-tab="home">Home</button><button class="tab" data-tab="plan">Study Plan</button><button class="tab" data-tab="reels">Reels</button><button class="tab" data-tab="progress">Progress</button></div>
-  <section class="panel active" id="home">
-    <div class="hero"><h2 id="greeting">Ready to lock in?</h2><p>Your AI study coach that turns "I'll do it later" into done.</p><p id="heroStatus"></p><div class="quote">"Lock in. Unlock your best self."</div></div>
-    <div class="card"><h2>Your classes</h2><p class="sub">Everything personalizes around these. Manage them anytime.</p>
-      <div class="classlist" id="homeClassList"></div>
-      <div class="row" style="align-items:flex-end;margin-top:8px">
-        <div style="flex:2"><label>Add a class</label><input id="hcName" placeholder="e.g. Chemistry"></div>
-        <div style="flex:1"><label>Difficulty</label><select id="hcDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
-        <div style="flex:0 0 auto"><button class="btn sm" id="hAddClass">+ Add</button></div>
+
+<div id="app">
+  <nav class="tabs">
+    <button class="tab active" data-tab="home"><span class="ic"><svg width="24" height="24"><use href="#i-house"/></svg></span>Home</button>
+    <button class="tab" data-tab="plan"><span class="ic"><svg width="24" height="24"><use href="#i-book"/></svg></span>Plan</button>
+    <button class="tab" data-tab="reels"><span class="ic"><svg width="24" height="24"><use href="#i-cards"/></svg></span>Reels</button>
+    <button class="tab" data-tab="progress"><span class="ic"><svg width="24" height="24"><use href="#i-chart"/></svg></span>Progress</button>
+  </nav>
+
+  <div class="wrap">
+    <div class="topbar">
+      <div class="logo-badge"><svg width="34" height="34"><use href="#i-logo"/></svg></div>
+      <div class="brand"><h1>Lock In</h1><p>Unlock your best self.</p></div>
+      <div class="userbox">
+        <div class="streakpill"><svg width="18" height="23"><use href="#i-flame"/></svg><span id="streakNum">0</span></div>
+        <span class="usermail" id="userMail"></span>
+        <button class="logout" id="logoutBtn">Log out</button>
       </div>
     </div>
-    <div class="card"><h2>Your study profile</h2><p class="sub">From your setup answers. <a href="#" id="editSetup" style="color:var(--green);font-weight:700">Retake setup</a></p><div class="summaryGrid" id="profileSummary"></div></div>
-    <div class="features">
-      <div class="feat" data-go="plan"><div class="ic">&#128197;</div><h3>AI Study Plan</h3><p>A personalized day-by-day plan built around your classes and how you study.</p></div>
-      <div class="feat" data-go="reels"><div class="ic">&#128241;</div><h3>Lock In Reels</h3><p>Scroll study questions like a feed - learning that feels like TikTok.</p></div>
-      <div class="feat" data-go="progress"><div class="ic">&#128200;</div><h3>Progress & Feedback</h3><p>Track streaks and get AI coaching on how to improve.</p></div>
-    </div>
-  </section>
-  <section class="panel" id="plan">
-    <div class="card"><h2>AI Study Plan Generator</h2><p class="sub">Choose which classes to focus on. Lock In builds a plan around your deadlines and study style.</p>
-      <label>Which classes should this plan cover?</label><div id="planClassPick"></div>
-      <div class="row"><div><label>Plan length</label><select id="planDays"><option value="3">Next 3 days</option><option value="5" selected>Next 5 days</option><option value="7">Next 7 days</option></select></div>
-        <div><label>Study time per day</label><select id="planHours"><option>1 hour</option><option selected>2 hours</option><option>3 hours</option><option>4+ hours</option></select></div></div>
-      <label>Anything else coming up? (optional)</label><textarea id="planDeadlines" rows="2" placeholder="e.g. group project due Monday, SAT in 3 weeks"></textarea>
-      <label>What are you stuck on right now? (optional)</label><textarea id="planStuck" rows="2" placeholder="e.g. I don't get how oxidation states work, keep mixing up mitosis phases"></textarea>
-      <button class="btn block" id="genPlan">Generate my plan</button><div id="planErr"></div>
-    </div>
-    <div id="planOut"></div>
-  </section>
-  <section class="panel" id="reels">
-    <div class="card"><h2>Lock In Reels</h2><p class="sub">Pick a class (or type a topic) and get an AI question feed - swipe up for the next.</p>
-      <label>Focus this session on...</label><div class="opts-wrap" id="reelClassPick"></div>
-      <label style="margin-top:14px">Or type a specific topic</label><input id="reelTopic" placeholder="e.g. Photosynthesis, WWII causes, quadratics">
-      <button class="btn block" id="genReels">Start reels</button><div id="reelErr"></div>
-    </div>
-    <div id="reelViewport" style="display:none"><div id="reelTrack"></div></div>
-  </section>
-  <section class="panel" id="progress">
-    <div class="stats"><div class="stat"><div class="n" id="stStreak">0</div><div class="l">Day streak</div></div><div class="stat"><div class="n" id="stPlans">0</div><div class="l">Plans made</div></div><div class="stat"><div class="n" id="stReels">0</div><div class="l">Reels answered</div></div><div class="stat"><div class="n" id="stAcc">-</div><div class="l">Reel accuracy</div></div></div>
-    <div class="card"><h2>Activity this week</h2><p class="sub">Reels answered per day.</p><div class="chart-box"><canvas id="actChart"></canvas></div></div>
-    <div class="feedback"><h2>AI Coach feedback</h2><p class="sub">Personalized insight based on your profile and activity.</p><div id="feedbackText" style="margin-top:12px">Answer a few reels or make a plan, then tap below.</div><button class="btn ghost block" id="genFeedback" style="border-color:#fff;color:#fff;margin-top:16px">Get my feedback</button></div>
-  </section>
-</div></div>
+
+    <section class="panel active" id="home">
+      <div class="home-grid">
+        <div>
+          <div class="hero">
+            <h2 id="greeting">Ready to lock in?</h2>
+            <p>Your AI study coach that turns "I'll do it later" into done.</p>
+            <p id="heroStatus"></p>
+            <div class="quote">"Lock in. Unlock your best self."</div>
+            <div class="hero-mark"><svg width="26" height="26" style="color:#FFC736"><use href="#i-sparkle"/></svg></div>
+          </div>
+          <div class="card"><h2>Your classes</h2><p class="sub">Everything personalizes around these. Tap the trail icon to walk a class topic by topic.</p>
+            <div class="classlist" id="homeClassList"></div>
+            <div class="row" style="align-items:flex-end;margin-top:14px">
+              <div style="flex:2"><label>Add a class</label><input id="hcName" placeholder="e.g. Chemistry"></div>
+              <div style="flex:1"><label>Difficulty</label><select id="hcDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
+              <div style="flex:0 0 auto"><button class="btn sm" id="hAddClass"><svg width="15" height="15"><use href="#i-plus"/></svg> Add</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="home-side">
+          <div class="features">
+            <div class="feat" data-go="plan"><div class="ic"><svg width="24" height="24"><use href="#i-book"/></svg></div><h3>AI Study Plan</h3><p>A day-by-day plan built around your classes.</p></div>
+            <div class="feat" data-go="reels"><div class="ic"><svg width="24" height="24"><use href="#i-cards"/></svg></div><h3>Lock In Reels</h3><p>Study questions that scroll like a feed.</p></div>
+            <div class="feat" data-go="progress"><div class="ic"><svg width="24" height="24"><use href="#i-chart"/></svg></div><h3>Progress</h3><p>Streaks, charts and AI coaching.</p></div>
+          </div>
+          <div class="card"><h2>Your study profile</h2><p class="sub">From your setup answers. <a href="#" id="editSetup" style="color:var(--violet);font-weight:800">Retake setup</a></p><div class="summaryGrid" id="profileSummary"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="classpath">
+      <div class="path-head">
+        <button class="back-btn" id="pathBack" aria-label="Back to home"><svg width="20" height="20"><use href="#i-back"/></svg></button>
+        <div class="subject-badge" id="pathBadge"></div>
+        <div><h2 id="pathTitle">Class path</h2><div class="cmeta" id="pathMeta"></div></div>
+      </div>
+      <div class="path-grid">
+        <div id="pathTrail"></div>
+        <div id="pathSide"></div>
+      </div>
+    </section>
+
+    <section class="panel" id="plan">
+      <div class="card"><h2>AI Study Plan Generator</h2><p class="sub">Choose which classes to focus on. Lock In builds a plan around your deadlines and study style.</p>
+        <label>Which classes should this plan cover?</label><div id="planClassPick"></div>
+        <div class="row"><div><label>Plan length</label><select id="planDays"><option value="3">Next 3 days</option><option value="5" selected>Next 5 days</option><option value="7">Next 7 days</option></select></div>
+          <div><label>Study time per day</label><select id="planHours"><option>1 hour</option><option selected>2 hours</option><option>3 hours</option><option>4+ hours</option></select></div></div>
+        <label>Anything else coming up? (optional)</label><textarea id="planDeadlines" rows="2" placeholder="e.g. group project due Monday, SAT in 3 weeks"></textarea>
+        <label>What are you stuck on right now? (optional)</label><textarea id="planStuck" rows="2" placeholder="e.g. I don't get how oxidation states work, keep mixing up mitosis phases"></textarea>
+        <button class="btn block" id="genPlan"><svg width="18" height="18" style="color:#FFC736"><use href="#i-sparkle"/></svg> Generate my plan</button><div id="planErr"></div>
+      </div>
+      <div id="planOut"></div>
+    </section>
+
+    <section class="panel" id="reels">
+      <div class="card"><h2>Lock In Reels</h2><p class="sub">Pick a class (or type a topic) and get an AI question feed - swipe up for the next.</p>
+        <label>Focus this session on...</label><div class="opts-wrap" id="reelClassPick"></div>
+        <label style="margin-top:16px">Or type a specific topic</label><input id="reelTopic" placeholder="e.g. Photosynthesis, WWII causes, quadratics">
+        <button class="btn block" id="genReels">Start reels</button><div id="reelErr"></div>
+      </div>
+      <div id="reelViewport" style="display:none"><div id="reelTrack"></div></div>
+    </section>
+
+    <section class="panel" id="progress">
+      <div class="streak-slab">
+        <div class="top">
+          <div class="flame"><svg width="40" height="50"><use href="#i-flame-warm"/></svg></div>
+          <div>
+            <div class="big"><span id="streakDays">0</span> days</div>
+            <div class="cap" id="streakCap">Answer a reel today to keep it alive.</div>
+          </div>
+        </div>
+        <div class="weekrow" id="weekRow"></div>
+      </div>
+      <div class="stats"><div class="stat"><div class="n" id="stStreak">0</div><div class="l">Day streak</div></div><div class="stat"><div class="n" id="stPlans">0</div><div class="l">Plans made</div></div><div class="stat"><div class="n" id="stReels">0</div><div class="l">Reels answered</div></div><div class="stat"><div class="n" id="stAcc">-</div><div class="l">Reel accuracy</div></div></div>
+      <div class="card"><h2>Activity this week</h2><p class="sub">Reels answered per day.</p><div class="chart-box"><canvas id="actChart"></canvas></div></div>
+      <div class="card"><h2>Topics to shore up</h2><p class="sub">Pulled from your reel answers - these feed every new plan.</p><div id="weakList"></div></div>
+      <div class="feedback"><h2>AI Coach feedback</h2><p class="sub">Personalized insight based on your profile and activity.</p><div id="feedbackText" style="margin-top:12px">Answer a few reels or make a plan, then tap below.</div><button class="btn yellow block" id="genFeedback">Get my feedback</button></div>
+    </section>
+  </div>
+</div>
+
 <script src="config.js"></script>
 <script src="script.js"></script>
 </body>
