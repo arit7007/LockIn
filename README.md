@@ -1,5 +1,7 @@
 # Lock-In Study Planner
 
+**Note:** This repo is mid-rebuild toward a richer app (accounts, classes, streaks, AI reels/plans, backed by Supabase) — see `CLAUDE.md` for the target architecture and migration status. The MVP described below is what's currently live while that migration is in progress.
+
 This is a simple starter web app for the Lock-In idea. It creates a personalized study plan for a student based on:
 
 - subjects or topics
