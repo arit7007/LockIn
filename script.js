@@ -74,7 +74,13 @@ async function doAuth() {
 document.getElementById('logoutBtn').addEventListener('click', async () => { if (db) await db.auth.signOut(); });
 if (db) {
   db.auth.getSession().then(({ data }) => handleSession(data.session));
-  db.auth.onAuthStateChange((_e, session) => handleSession(session));
+  db.auth.onAuthStateChange((event, session) => {
+    if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+      if (session && session.user) user = session.user;
+      return;
+    }
+    handleSession(session);
+  });
 }
 
 async function handleSession(session) {
@@ -153,8 +159,8 @@ function startOnboarding() {
   setPill(document.getElementById('qFocus'), p.focus || '');
   setPill(document.getElementById('qAttention'), p.attention || '');
   setPills(document.getElementById('qMethods'), p.methods || []);
-  setPill(document.getElementById('qDistraction'), p.distraction || '');
-  setPill(document.getElementById('qMotivation'), p.motivation || '');
+  setPills(document.getElementById('qDistraction'), p.distraction || []);
+  setPills(document.getElementById('qMotivation'), p.motivation || []);
   setPill(document.getElementById('qSession'), p.session || '');
   document.getElementById('qGoal').value = p.goal || '';
   gotoStep(1); window.scrollTo({ top: 0 });
@@ -203,8 +209,8 @@ document.getElementById('finishOb').addEventListener('click', async () => {
   state.level = pillValue(document.getElementById('oLevel')) || 'High school';
   state.prefs = {
     focus: pillValue(document.getElementById('qFocus')), attention: pillValue(document.getElementById('qAttention')),
-    methods: pillValues(document.getElementById('qMethods')), distraction: pillValue(document.getElementById('qDistraction')),
-    motivation: pillValue(document.getElementById('qMotivation')), session: pillValue(document.getElementById('qSession')),
+    methods: pillValues(document.getElementById('qMethods')), distraction: pillValues(document.getElementById('qDistraction')),
+    motivation: pillValues(document.getElementById('qMotivation')), session: pillValue(document.getElementById('qSession')),
     goal: document.getElementById('qGoal').value.trim()
   };
   state.onboarded = true;
@@ -220,7 +226,7 @@ function classNames() { return state.classes.map(c => c.name); }
 function classContext(list) { return (list || state.classes).map(c => c.name + ' (' + (c.difficulty || 'medium') + (c.nextTest ? ', next test ' + c.nextTest : '') + ')').join('; '); }
 function prefsContext() {
   const p = state.prefs || {};
-  return 'Focuses best: ' + (p.focus || 'n/a') + '. Attention span: ' + (p.attention || 'n/a') + '. Likes methods: ' + ((p.methods || []).join(', ') || 'n/a') + '. Biggest distraction: ' + (p.distraction || 'n/a') + '. Motivated by: ' + (p.motivation || 'n/a') + '. Preferred session length: ' + (p.session || 'n/a') + '. Goal: ' + (p.goal || 'n/a') + '.';
+  return 'Focuses best: ' + (p.focus || 'n/a') + '. Attention span: ' + (p.attention || 'n/a') + '. Likes methods: ' + ((p.methods || []).join(', ') || 'n/a') + '. Biggest distractions: ' + ((p.distraction || []).join(', ') || 'n/a') + '. Motivated by: ' + ((p.motivation || []).join(', ') || 'n/a') + '. Preferred session length: ' + (p.session || 'n/a') + '. Goal: ' + (p.goal || 'n/a') + '.';
 }
 function renderHome() {
   document.getElementById('greeting').textContent = state.name ? ('Ready to lock in, ' + esc(state.name) + '?') : 'Ready to lock in?';
@@ -251,7 +257,7 @@ document.getElementById('hAddClass').addEventListener('click', async () => {
 document.getElementById('hcName').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('hAddClass').click(); });
 function renderSummary() {
   const p = state.prefs || {};
-  const items = [['Grade level', state.level], ['Focuses best', p.focus], ['Attention span', p.attention], ['Study methods', (p.methods || []).join(', ')], ['Biggest distraction', p.distraction], ['Motivated by', p.motivation], ['Session length', p.session], ['Main goal', p.goal]];
+  const items = [['Grade level', state.level], ['Focuses best', p.focus], ['Attention span', p.attention], ['Study methods', (p.methods || []).join(', ')], ['Biggest distractions', (p.distraction || []).join(', ')], ['Motivated by', (p.motivation || []).join(', ')], ['Session length', p.session], ['Main goal', p.goal]];
   document.getElementById('profileSummary').innerHTML = items.filter(x => x[1]).map(x => '<div><div class="k">' + esc(x[0]) + '</div><div class="v">' + esc(x[1]) + '</div></div>').join('');
 }
 
