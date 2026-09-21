@@ -1,595 +1,442 @@
-const studyForm = document.getElementById("study-form");
-const dueDateInput = document.getElementById("due-date");
-const outputSection = document.getElementById("plan-output");
-const planTitle = document.getElementById("plan-title");
-const planSummary = document.getElementById("plan-summary");
-const generationSource = document.getElementById("generation-source");
-const statsGrid = document.getElementById("stats-grid");
-const dailyPlan = document.getElementById("daily-plan");
-const focusTip = document.getElementById("focus-tip");
-const coachNote = document.getElementById("coach-note");
-const feedbackText = document.getElementById("feedback-text");
-const progressValue = document.getElementById("progress-value");
-const progressFill = document.getElementById("progress-fill");
-const apiStatus = document.getElementById("api-status");
-const formStatus = document.getElementById("form-status");
-const submitButton = document.getElementById("submit-button");
+"use strict";
+const lockInConfig = window.LOCKIN_CONFIG || {};
+const configured = !!(lockInConfig.supabaseUrl && lockInConfig.supabaseAnonKey);
+let db = null;
+if (configured) db = supabase.createClient(lockInConfig.supabaseUrl, lockInConfig.supabaseAnonKey);
+const gate = document.getElementById('gate'), onboard = document.getElementById('onboard'), app = document.getElementById('app');
+const todayStr = () => new Date().toISOString().slice(0, 10);
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function uid() { return Math.random().toString(36).slice(2, 9); }
+let user = null, state = null;
 
-const today = new Date();
-const defaultDueDate = new Date(today);
-defaultDueDate.setDate(defaultDueDate.getDate() + 7);
+function blankState() {
+  return {
+    name: '', level: 'High school', classes: [], prefs: {},
+    plans_made: 0, reels_answered: 0, reels_correct: 0,
+    streak: 0, last_active: null, daily: {}, onboarded: false
+  };
+}
 
-const appConfig = {
-  apiBaseUrl: sanitizeEndpoint(window.LOCKIN_CONFIG?.apiBaseUrl || ""),
-  studyPlanPath: window.LOCKIN_CONFIG?.studyPlanPath || "/study-plan",
-  useLocalFallback: window.LOCKIN_CONFIG?.useLocalFallback !== false
-};
+function dbRowToClass(row) {
+  return { id: row.id, name: row.name, difficulty: row.difficulty || 'medium', nextTest: row.next_test || '' };
+}
 
-dueDateInput.min = toDateInputValue(today);
-dueDateInput.value = toDateInputValue(defaultDueDate);
-renderApiStatus();
+function buildPills(container) {
+  const single = container.dataset.single, multi = container.dataset.multi;
+  const items = (single || multi).split('|');
+  container.innerHTML = items.map(t => '<button type="button" class="pill" data-val="' + esc(t) + '">' + esc(t) + '</button>').join('');
+  container.querySelectorAll('.pill').forEach(p => p.addEventListener('click', () => {
+    if (single) { container.querySelectorAll('.pill').forEach(x => x.classList.remove('on')); p.classList.add('on'); }
+    else { p.classList.toggle('on'); }
+  }));
+}
+function pillValue(c) { const el = c.querySelector('.pill.on'); return el ? el.dataset.val : ''; }
+function pillValues(c) { return [...c.querySelectorAll('.pill.on')].map(x => x.dataset.val); }
+function setPill(c, v) { c.querySelectorAll('.pill').forEach(x => x.classList.toggle('on', x.dataset.val === v)); }
+function setPills(c, vals) { const s = new Set(vals || []); c.querySelectorAll('.pill').forEach(x => x.classList.toggle('on', s.has(x.dataset.val))); }
+['oLevel', 'qFocus', 'qAttention', 'qMethods', 'qDistraction', 'qMotivation', 'qSession'].forEach(id => buildPills(document.getElementById(id)));
 
-studyForm.addEventListener("submit", handleSubmit);
+let authMode = 'login';
+if (!configured) {
+  document.getElementById('configWarn').innerHTML = '<div class="err">Not connected - add your Supabase URL and anon key in config.js.</div>';
+  document.getElementById('authBtn').disabled = true;
+}
+document.querySelectorAll('#authtabs button').forEach(b => b.addEventListener('click', () => {
+  authMode = b.dataset.mode;
+  document.querySelectorAll('#authtabs button').forEach(x => x.classList.toggle('active', x === b));
+  document.getElementById('authBtn').textContent = authMode === 'login' ? 'Log in' : 'Create account';
+  document.getElementById('authMsg').innerHTML = '';
+}));
+document.getElementById('authBtn').addEventListener('click', doAuth);
+document.getElementById('authPass').addEventListener('keydown', e => { if (e.key === 'Enter') doAuth(); });
 
-async function handleSubmit(event) {
-  event.preventDefault();
-
-  const studentData = getStudentData();
-  if (!studentData.subjects.length || !studentData.goal || Number.isNaN(studentData.weeklyHours)) {
-    setFormStatus("Add at least one subject, a goal, and weekly study hours before generating a plan.", "error");
-    return;
-  }
-
-  setLoadingState(true);
-
+async function doAuth() {
+  const email = document.getElementById('authEmail').value.trim(), pass = document.getElementById('authPass').value;
+  const msg = document.getElementById('authMsg'), btn = document.getElementById('authBtn');
+  msg.innerHTML = '';
+  if (!email || !pass) { msg.innerHTML = '<div class="err">Enter your email and password.</div>'; return; }
+  btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Working...';
   try {
-    const responsePayload = await requestAIStudyPlan(studentData);
-    const aiPlan = normalizeAIPlan(responsePayload.plan || responsePayload, studentData);
-    renderPlan(aiPlan, studentData, {
-      sourceLabel: `Generated with OpenAI ${responsePayload.model || "Responses API"}`
-    });
-    setFormStatus("AI study plan ready.", "success");
-  } catch (error) {
-    if (appConfig.useLocalFallback) {
-      const fallbackPlan = buildFallbackStudyPlan(studentData);
-      renderPlan(fallbackPlan, studentData, {
-        sourceLabel: "Local demo plan (AI backend unavailable)"
-      });
-      setFormStatus(getFriendlyErrorMessage(error), "warning");
+    if (authMode === 'signup') {
+      const { data, error } = await db.auth.signUp({ email, password: pass });
+      if (error) throw error;
+      if (!data.session) msg.innerHTML = '<div class="ok">Account created! Check your email to confirm, then log in.</div>';
     } else {
-      setFormStatus(getFriendlyErrorMessage(error), "error");
+      const { error } = await db.auth.signInWithPassword({ email, password: pass });
+      if (error) throw error;
     }
+  } catch (e) {
+    msg.innerHTML = '<div class="err">' + esc(e.message || 'Something went wrong.') + '</div>';
   } finally {
-    setLoadingState(false);
+    btn.disabled = false; btn.innerHTML = old;
   }
 }
-
-function getStudentData() {
-  const formData = new FormData(studyForm);
-  return {
-    studentName: sanitizeText(formData.get("studentName")) || "Student",
-    gradeLevel: formData.get("gradeLevel"),
-    subjects: splitTopics(formData.get("subjects")),
-    goal: sanitizeText(formData.get("goal")),
-    weeklyHours: Number(formData.get("weeklyHours")),
-    sessionLength: Number(formData.get("sessionLength")),
-    dueDate: new Date(String(formData.get("dueDate")) + "T12:00:00"),
-    confidence: Number(formData.get("confidence")),
-    distraction: formData.get("distraction")
-  };
+document.getElementById('logoutBtn').addEventListener('click', async () => { if (db) await db.auth.signOut(); });
+if (db) {
+  db.auth.getSession().then(({ data }) => handleSession(data.session));
+  db.auth.onAuthStateChange((_e, session) => handleSession(session));
 }
 
-async function requestAIStudyPlan(studentData) {
-  if (!appConfig.apiBaseUrl) {
-    throw new Error("AI backend is not configured in config.js.");
-  }
-
-  const endpoint = `${appConfig.apiBaseUrl}${appConfig.studyPlanPath}`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      studentData: {
-        ...studentData,
-        dueDate: toDateInputValue(studentData.dueDate)
-      }
-    })
-  });
-
-  let payload = null;
-
-  try {
-    payload = await response.json();
-  } catch (error) {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(payload?.error || `AI request failed with status ${response.status}.`);
-  }
-
-  if (!payload?.plan && !payload?.days) {
-    throw new Error("AI response was missing plan data.");
-  }
-
-  return payload;
-}
-
-function normalizeAIPlan(rawPlan, studentData) {
-  const fallbackPlan = buildFallbackStudyPlan(studentData);
-  if (!rawPlan || typeof rawPlan !== "object") {
-    return fallbackPlan;
-  }
-
-  const daysUntilDue = getDaysUntil(studentData.dueDate);
-  const rawDays = Array.isArray(rawPlan.days) ? rawPlan.days.slice(0, 7) : [];
-
-  if (!rawDays.length) {
-    return fallbackPlan;
-  }
-
-  const normalizedDays = rawDays.map((day, index) => {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
-
-    const tasks = Array.isArray(day.tasks)
-      ? day.tasks.map((task) => sanitizeText(task)).filter(Boolean).slice(0, 6)
-      : [];
-
-    return {
-      label: sanitizeText(day.label) || formatPlanDate(date),
-      title: sanitizeText(day.title) || `Study block for ${studentData.subjects[index % studentData.subjects.length]}`,
-      phaseLabel: sanitizeText(day.phaseLabel) || "AI plan",
-      description: sanitizeText(day.description) || "Work through the session in order and finish with a quick self-check.",
-      sessionCount: clamp(Number(day.sessionCount) || fallbackPlan.sessionsPerStudyDay, 1, 4),
-      minutes: roundToNearestFive(Number(day.minutes) || fallbackPlan.minutesPerStudyDay),
-      tasks: tasks.length ? tasks : fallbackPlan.days[index % fallbackPlan.days.length].tasks
-    };
-  });
-
-  const minutesPerStudyDay = roundToNearestFive(
-    Number(rawPlan.minutesPerStudyDay) ||
-      Math.round(normalizedDays.reduce((sum, day) => sum + day.minutes, 0) / normalizedDays.length)
-  );
-  const sessionsPerStudyDay = clamp(
-    Number(rawPlan.sessionsPerStudyDay) ||
-      Math.round(normalizedDays.reduce((sum, day) => sum + day.sessionCount, 0) / normalizedDays.length),
-    1,
-    4
-  );
-  const readinessLabel = sanitizeText(rawPlan.readiness?.label || rawPlan.readinessLabel) || fallbackPlan.readiness.label;
-  const readinessDetail = sanitizeText(rawPlan.readiness?.detail || rawPlan.readinessDetail) || fallbackPlan.readiness.detail;
-  const supportiveNudge =
-    sanitizeText(rawPlan.readiness?.supportiveNudge || rawPlan.supportiveNudge) || fallbackPlan.readiness.supportiveNudge;
-
-  return {
-    daysUntilDue,
-    visibleDays: normalizedDays.length,
-    studyDaysPerWeek: fallbackPlan.studyDaysPerWeek,
-    weeklyMinutes: studentData.weeklyHours * 60,
-    minutesPerStudyDay,
-    sessionsPerStudyDay,
-    readiness: {
-      label: readinessLabel,
-      detail: readinessDetail,
-      supportiveNudge
-    },
-    days: normalizedDays,
-    focusTip: sanitizeText(rawPlan.focusTip) || fallbackPlan.focusTip,
-    coachNote: sanitizeText(rawPlan.coachNote) || fallbackPlan.coachNote,
-    planSummary: sanitizeText(rawPlan.planSummary) || fallbackPlan.planSummary
-  };
-}
-
-function renderPlan(plan, studentData, renderMeta = {}) {
-  outputSection.classList.remove("hidden");
-  planTitle.textContent = `${studentData.studentName}'s Lock-In study plan`;
-  planSummary.textContent = plan.planSummary;
-  focusTip.textContent = plan.focusTip;
-  coachNote.textContent = plan.coachNote;
-
-  if (renderMeta.sourceLabel) {
-    generationSource.textContent = renderMeta.sourceLabel;
-    generationSource.classList.remove("hidden");
+async function handleSession(session) {
+  if (session && session.user) {
+    user = session.user;
+    document.getElementById('userMail').textContent = user.email;
+    await loadProfile();
   } else {
-    generationSource.classList.add("hidden");
+    user = null; state = null;
+    gate.style.display = 'block'; onboard.style.display = 'none'; app.style.display = 'none';
   }
+}
 
-  statsGrid.innerHTML = "";
-  dailyPlan.innerHTML = "";
+async function loadProfile() {
+  state = blankState();
+  const { data, error } = await db.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  if (error) console.warn(error);
+  if (data) {
+    Object.assign(state, {
+      name: data.name || '', level: data.level || 'High school', prefs: data.prefs || {},
+      plans_made: data.plans_made || 0, reels_answered: data.reels_answered || 0, reels_correct: data.reels_correct || 0,
+      streak: data.streak || 0, last_active: data.last_active || null, daily: data.daily || {}, onboarded: !!data.onboarded
+    });
+  } else {
+    await db.from('profiles').insert({ id: user.id });
+  }
+  const { data: classRows, error: classError } = await db.from('classes').select('*').eq('user_id', user.id).order('created_at');
+  if (classError) console.warn(classError);
+  state.classes = (classRows || []).map(dbRowToClass);
+  gate.style.display = 'none';
+  if (state.onboarded) { showApp(); } else { startOnboarding(); }
+}
 
-  const stats = [
-    {
-      label: "Deadline",
-      value: `${plan.daysUntilDue} day${plan.daysUntilDue === 1 ? "" : "s"}`,
-      detail: "Time left until the target date."
-    },
-    {
-      label: "Daily focus",
-      value: `${plan.minutesPerStudyDay} min`,
-      detail: "Recommended minutes on each full study day."
-    },
-    {
-      label: "Sessions",
-      value: `${plan.sessionsPerStudyDay} blocks`,
-      detail: "Each day is split into manageable focus sessions."
-    },
-    {
-      label: "Readiness",
-      value: plan.readiness.label,
-      detail: plan.readiness.detail
+let saveTimer = null;
+function save() {
+  if (!user || !db) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const row = {
+      id: user.id, name: state.name, level: state.level, prefs: state.prefs,
+      plans_made: state.plans_made, reels_answered: state.reels_answered, reels_correct: state.reels_correct,
+      streak: state.streak, last_active: state.last_active, daily: state.daily, onboarded: state.onboarded,
+      updated_at: new Date().toISOString()
+    };
+    const { error } = await db.from('profiles').upsert(row);
+    if (error) console.warn('save error', error);
+  }, 400);
+}
+
+function touchStreak() {
+  const t = todayStr();
+  if (state.last_active === t) return;
+  const y = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+  state.streak = (state.last_active === y) ? (state.streak || 0) + 1 : 1;
+  state.last_active = t;
+}
+
+async function replaceClasses(classList) {
+  await db.from('classes').delete().eq('user_id', user.id);
+  if (!classList.length) { state.classes = []; return; }
+  const { data, error } = await db.from('classes').insert(
+    classList.map(c => ({ user_id: user.id, name: c.name, difficulty: c.difficulty || 'medium', next_test: c.nextTest || null }))
+  ).select();
+  if (error) { console.warn('replaceClasses error', error); return; }
+  state.classes = (data || []).map(dbRowToClass);
+}
+
+let obClasses = [];
+function startOnboarding() {
+  gate.style.display = 'none'; app.style.display = 'none'; onboard.style.display = 'block';
+  document.getElementById('oName').value = state.name || '';
+  setPill(document.getElementById('oLevel'), state.level || 'High school');
+  obClasses = (state.classes || []).map(c => ({ ...c }));
+  renderObClasses();
+  const p = state.prefs || {};
+  setPill(document.getElementById('qFocus'), p.focus || '');
+  setPill(document.getElementById('qAttention'), p.attention || '');
+  setPills(document.getElementById('qMethods'), p.methods || []);
+  setPill(document.getElementById('qDistraction'), p.distraction || '');
+  setPill(document.getElementById('qMotivation'), p.motivation || '');
+  setPill(document.getElementById('qSession'), p.session || '');
+  document.getElementById('qGoal').value = p.goal || '';
+  gotoStep(1); window.scrollTo({ top: 0 });
+}
+function gotoStep(n) {
+  document.querySelectorAll('.wstep').forEach(s => s.classList.toggle('active', +s.dataset.step === n));
+  document.querySelectorAll('.progress .seg').forEach((s, i) => s.classList.toggle('on', i < n));
+  const labels = { 1: 'Step 1 of 3 - About you', 2: 'Step 2 of 3 - Your classes', 3: 'Step 3 of 3 - How you study' };
+  document.getElementById('stepLabel').textContent = labels[n];
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function renderObClasses() {
+  const box = document.getElementById('classList');
+  box.innerHTML = obClasses.map(c => classRowHTML(c)).join('') || '<p class="hint">No classes added yet.</p>';
+  box.querySelectorAll('.rm').forEach(b => b.addEventListener('click', () => { obClasses = obClasses.filter(x => x.id !== b.dataset.id); renderObClasses(); }));
+}
+function classRowHTML(c) {
+  const bcls = c.difficulty === 'hard' ? 'b-hard' : c.difficulty === 'easy' ? 'b-easy' : 'b-med';
+  const meta = c.nextTest ? ('Test: ' + c.nextTest) : '';
+  return '<div class="classitem"><div class="grow"><span class="cname">' + esc(c.name) + '</span><span class="badge ' + bcls + '">' + esc(c.difficulty || 'medium') + '</span><div class="cmeta">' + esc(meta) + '</div></div><button class="rm" data-id="' + c.id + '" title="Remove">&times;</button></div>';
+}
+document.getElementById('addClass').addEventListener('click', () => {
+  const name = document.getElementById('cName').value.trim();
+  const err = document.getElementById('classErr'); err.innerHTML = '';
+  if (!name) { err.innerHTML = '<div class="err">Type a class name first.</div>'; return; }
+  obClasses.push({ id: uid(), name, difficulty: document.getElementById('cDiff').value, nextTest: document.getElementById('cDate').value || '' });
+  document.getElementById('cName').value = ''; document.getElementById('cDate').value = '';
+  renderObClasses();
+});
+document.getElementById('cName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('addClass').click(); } });
+document.getElementById('s1next').addEventListener('click', () => {
+  const name = document.getElementById('oName').value.trim();
+  if (!name) { alert('Please enter your name.'); return; }
+  gotoStep(2);
+});
+document.getElementById('s2back').addEventListener('click', () => gotoStep(1));
+document.getElementById('s2next').addEventListener('click', () => {
+  const err = document.getElementById('classErr'); err.innerHTML = '';
+  if (!obClasses.length) { err.innerHTML = '<div class="err">Add at least one class to continue.</div>'; return; }
+  gotoStep(3);
+});
+document.getElementById('s3back').addEventListener('click', () => gotoStep(2));
+document.getElementById('finishOb').addEventListener('click', async () => {
+  const btn = document.getElementById('finishOb'); btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Saving...';
+  state.name = document.getElementById('oName').value.trim();
+  state.level = pillValue(document.getElementById('oLevel')) || 'High school';
+  state.prefs = {
+    focus: pillValue(document.getElementById('qFocus')), attention: pillValue(document.getElementById('qAttention')),
+    methods: pillValues(document.getElementById('qMethods')), distraction: pillValue(document.getElementById('qDistraction')),
+    motivation: pillValue(document.getElementById('qMotivation')), session: pillValue(document.getElementById('qSession')),
+    goal: document.getElementById('qGoal').value.trim()
+  };
+  state.onboarded = true;
+  await replaceClasses(obClasses);
+  save();
+  btn.disabled = false; btn.innerHTML = old;
+  showApp();
+});
+function showApp() { gate.style.display = 'none'; onboard.style.display = 'none'; app.style.display = 'block'; renderHome(); goTab('home'); }
+document.getElementById('editSetup').addEventListener('click', e => { e.preventDefault(); startOnboarding(); });
+
+function classNames() { return state.classes.map(c => c.name); }
+function classContext(list) { return (list || state.classes).map(c => c.name + ' (' + (c.difficulty || 'medium') + (c.nextTest ? ', next test ' + c.nextTest : '') + ')').join('; '); }
+function prefsContext() {
+  const p = state.prefs || {};
+  return 'Focuses best: ' + (p.focus || 'n/a') + '. Attention span: ' + (p.attention || 'n/a') + '. Likes methods: ' + ((p.methods || []).join(', ') || 'n/a') + '. Biggest distraction: ' + (p.distraction || 'n/a') + '. Motivated by: ' + (p.motivation || 'n/a') + '. Preferred session length: ' + (p.session || 'n/a') + '. Goal: ' + (p.goal || 'n/a') + '.';
+}
+function renderHome() {
+  document.getElementById('greeting').textContent = state.name ? ('Ready to lock in, ' + esc(state.name) + '?') : 'Ready to lock in?';
+  const n = state.classes.length;
+  document.getElementById('heroStatus').textContent = 'Tracking ' + n + ' class' + (n === 1 ? '' : 'es') + '. Streak: ' + (state.streak || 0) + ' day' + ((state.streak || 0) === 1 ? '' : 's') + '.';
+  document.getElementById('streakNum').textContent = state.streak || 0;
+  renderHomeClasses(); renderSummary();
+}
+function renderHomeClasses() {
+  const box = document.getElementById('homeClassList');
+  box.innerHTML = state.classes.map(c => classRowHTML(c)).join('') || '<p class="hint">No classes yet - add one below.</p>';
+  box.querySelectorAll('.rm').forEach(b => b.addEventListener('click', async () => {
+    const { error } = await db.from('classes').delete().eq('id', b.dataset.id);
+    if (error) { console.warn(error); return; }
+    state.classes = state.classes.filter(x => x.id !== b.dataset.id);
+    renderHome();
+  }));
+}
+document.getElementById('hAddClass').addEventListener('click', async () => {
+  const name = document.getElementById('hcName').value.trim();
+  if (!name) return;
+  const { data, error } = await db.from('classes').insert({ user_id: user.id, name, difficulty: document.getElementById('hcDiff').value, next_test: null }).select();
+  if (error) { console.warn(error); return; }
+  state.classes.push(dbRowToClass(data[0]));
+  document.getElementById('hcName').value = '';
+  renderHome();
+});
+document.getElementById('hcName').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('hAddClass').click(); });
+function renderSummary() {
+  const p = state.prefs || {};
+  const items = [['Grade level', state.level], ['Focuses best', p.focus], ['Attention span', p.attention], ['Study methods', (p.methods || []).join(', ')], ['Biggest distraction', p.distraction], ['Motivated by', p.motivation], ['Session length', p.session], ['Main goal', p.goal]];
+  document.getElementById('profileSummary').innerHTML = items.filter(x => x[1]).map(x => '<div><div class="k">' + esc(x[0]) + '</div><div class="v">' + esc(x[1]) + '</div></div>').join('');
+}
+
+async function askAI(prompt) {
+  if (!db) throw new Error('AI is not set up.');
+  const { data, error } = await db.functions.invoke('ai', { body: { prompt } });
+  if (error) throw new Error(error.message || 'AI request failed.');
+  if (!data || typeof data.text !== 'string') throw new Error((data && data.error) || 'AI response was missing text.');
+  return data.text;
+}
+function extractJSON(txt) {
+  if (!txt) return null;
+  let t = String(txt).trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  const s = t.search(/[\[{]/);
+  if (s < 0) return null;
+  const open = t[s], close = open === '{' ? '}' : ']';
+  let depth = 0, end = -1, inStr = false, esc2 = false;
+  for (let i = s; i < t.length; i++) {
+    const c = t[i];
+    if (inStr) { if (esc2) esc2 = false; else if (c === '\\') esc2 = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') { inStr = true; continue; }
+    if (c === open) depth++;
+    else if (c === close) { depth--; if (depth === 0) { end = i; break; } }
+  }
+  if (end < 0) return null;
+  try { return JSON.parse(t.slice(s, end + 1)); } catch (e) { return null; }
+}
+
+const tabs = document.querySelectorAll('.tab'), panels = document.querySelectorAll('.panel');
+function goTab(name) {
+  tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  panels.forEach(p => p.classList.toggle('active', p.id === name));
+  if (name === 'plan') renderPlanPicker();
+  if (name === 'reels') renderReelPicker();
+  if (name === 'progress') renderProgress();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+tabs.forEach(t => t.addEventListener('click', () => goTab(t.dataset.tab)));
+document.querySelectorAll('[data-go]').forEach(el => el.addEventListener('click', () => goTab(el.dataset.go)));
+
+function renderPlanPicker() {
+  const box = document.getElementById('planClassPick');
+  if (!state.classes.length) { box.innerHTML = '<p class="hint">Add classes on the Home tab first.</p>'; return; }
+  box.innerHTML = state.classes.map(c => '<label class="checkrow"><input type="checkbox" value="' + c.id + '" checked><span class="nm">' + esc(c.name) + '</span> <span class="badge ' + (c.difficulty === 'hard' ? 'b-hard' : c.difficulty === 'easy' ? 'b-easy' : 'b-med') + '">' + esc(c.difficulty || 'medium') + '</span>' + (c.nextTest ? '<span class="cmeta" style="margin-left:auto">test ' + esc(c.nextTest) + '</span>' : '') + '</label>').join('');
+}
+document.getElementById('genPlan').addEventListener('click', async () => {
+  const btn = document.getElementById('genPlan'), out = document.getElementById('planOut'), err = document.getElementById('planErr');
+  err.innerHTML = '';
+  const picked = [...document.querySelectorAll('#planClassPick input:checked')].map(i => i.value);
+  const chosen = state.classes.filter(c => picked.includes(c.id));
+  const extra = document.getElementById('planDeadlines').value.trim();
+  if (!chosen.length && !extra) { err.innerHTML = '<div class="err">Select at least one class (or add extra deadlines).</div>'; return; }
+  const days = document.getElementById('planDays').value, hours = document.getElementById('planHours').value;
+  btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Building...';
+  out.innerHTML = '<div class="card"><div class="loading"><span class="spinner"></span> Designing a plan around your classes and study style...</div></div>';
+  const prompt = 'You are Lock In, an AI study coach that helps students beat procrastination with plans tailored to how they actually study. Build a personalized ' + days + '-day study plan.\nSTUDENT: ' + (state.name || 'a student') + ' (' + state.level + ').\nCLASSES TO COVER: ' + (classContext(chosen) || 'general study') + '.\nOTHER DEADLINES: ' + (extra || 'none') + '.\nSTUDY TIME PER DAY: ' + hours + '.\nSTUDY PROFILE: ' + prefsContext() + '\nUse their profile: schedule harder/nearer-deadline classes during their best focus time, size each work block near their attention span and preferred session length, and prefer the study methods they like. Directly counter their biggest distraction and lean on what motivates them. Keep tasks small, specific and achievable.\nRespond ONLY with valid JSON, no markdown:\n{"summary":"one motivating sentence","days":[{"day":"Day 1 (label)","focus":"theme","blocks":[{"time":"25 min","subject":"Biology","task":"specific task","technique":"Active recall"}]}],"tips":["tip","tip","tip"]}';
+  try {
+    const raw = await askAI(prompt);
+    const plan = extractJSON(raw);
+    if (plan && Array.isArray(plan.days)) renderPlan(plan);
+    else out.innerHTML = '<div class="card"><h2>Your plan</h2><div style="white-space:pre-wrap;font-size:14px">' + esc(raw) + '</div></div>';
+    state.plans_made = (state.plans_made || 0) + 1;
+    touchStreak(); save();
+    document.getElementById('streakNum').textContent = state.streak || 0;
+  } catch (e) {
+    out.innerHTML = ''; err.innerHTML = '<div class="err">' + esc(e.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.innerHTML = old;
+  }
+});
+function renderPlan(plan) {
+  let html = '<div class="card"><h2>Your personalized plan</h2>';
+  if (plan.summary) html += '<div class="plan-summary">' + esc(plan.summary) + '</div>';
+  plan.days.forEach(d => {
+    html += '<div class="day"><div class="day-head"><span>' + esc(d.day || 'Day') + '</span><span class="focus">' + esc(d.focus || '') + '</span></div>';
+    (d.blocks || []).forEach(b => {
+      html += '<div class="block"><div class="time">' + esc(b.time || '') + '</div><div class="body"><div class="subj">' + esc(b.subject || '') + '</div><div class="task">' + esc(b.task || '') + '</div>' + (b.technique ? '<span class="tech">' + esc(b.technique) + '</span>' : '') + '</div></div>';
+    });
+    html += '</div>';
+  });
+  if (Array.isArray(plan.tips) && plan.tips.length) html += '<div class="tips"><h3>Beat procrastination</h3><ul>' + plan.tips.map(t => '<li>' + esc(t) + '</li>').join('') + '</ul></div>';
+  html += '</div>';
+  document.getElementById('planOut').innerHTML = html;
+}
+
+let reelChoice = '__mix__';
+function renderReelPicker() {
+  const box = document.getElementById('reelClassPick');
+  let html = '<button type="button" class="pill on" data-val="__mix__">Mix all classes</button>';
+  html += state.classes.map(c => '<button type="button" class="pill" data-val="' + esc(c.name) + '">' + esc(c.name) + '</button>').join('');
+  box.innerHTML = html; reelChoice = '__mix__';
+  box.querySelectorAll('.pill').forEach(p => p.addEventListener('click', () => {
+    box.querySelectorAll('.pill').forEach(x => x.classList.remove('on'));
+    p.classList.add('on'); reelChoice = p.dataset.val;
+    if (reelChoice !== '__mix__') document.getElementById('reelTopic').value = '';
+  }));
+}
+document.getElementById('genReels').addEventListener('click', async () => {
+  const btn = document.getElementById('genReels'), err = document.getElementById('reelErr'), vp = document.getElementById('reelViewport'), track = document.getElementById('reelTrack');
+  err.innerHTML = '';
+  let topic = document.getElementById('reelTopic').value.trim();
+  let scope = topic;
+  if (!scope) scope = reelChoice === '__mix__' ? classNames().join(', ') : reelChoice;
+  if (!scope) { err.innerHTML = '<div class="err">Pick a class or type a topic.</div>'; return; }
+  btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Loading...';
+  const prompt = 'You are Lock In, generating a feed of bite-sized study reels for ' + (state.name || 'a student') + ' (' + state.level + '). Topic(s): ' + scope + '. They like these study methods: ' + ((state.prefs.methods || []).join(', ') || 'quizzing') + '. Create 6 engaging reels mixing multiple-choice (4 options) and a couple flashcards. Punchy, social-media friendly, varied difficulty, short memorable explanations. Respond ONLY with valid JSON array of 6 objects:\n[{"type":"mcq","topic":"label","question":"q","options":["A","B","C","D"],"answerIndex":0,"explanation":"why"},{"type":"flash","topic":"label","question":"term","answer":"ans","explanation":"context"}]';
+  try {
+    const raw = await askAI(prompt);
+    let cards = extractJSON(raw);
+    if (!Array.isArray(cards)) throw new Error("Couldn't generate reels - try again.");
+    cards = cards.filter(c => c && c.question);
+    if (!cards.length) throw new Error('No reels returned - try another topic.');
+    buildReels(cards);
+    vp.style.display = 'block'; track.scrollTop = 0;
+    touchStreak(); save();
+    document.getElementById('streakNum').textContent = state.streak || 0;
+  } catch (e) {
+    err.innerHTML = '<div class="err">' + esc(e.message) + '</div>';
+  } finally {
+    btn.disabled = false; btn.innerHTML = old;
+  }
+});
+function buildReels(cards) {
+  const track = document.getElementById('reelTrack'); track.innerHTML = '';
+  cards.forEach(c => {
+    const reel = document.createElement('div');
+    reel.className = 'reel' + (c.type === 'flash' ? ' reel-flash' : '');
+    if (c.type === 'flash') {
+      reel.innerHTML = '<div class="tag">' + esc(c.topic || 'Flashcard') + ' - Flashcard</div><div class="q">' + esc(c.question) + '<div style="font-size:13px;font-weight:500;opacity:.7;margin-top:10px">Tap to reveal</div></div><div class="flash-answer"><b>' + esc(c.answer || '') + '</b>' + (c.explanation ? '<br><span style="opacity:.85;font-size:14px;font-weight:400">' + esc(c.explanation) + '</span>' : '') + '</div><div class="swipe">Swipe up for next</div>';
+      const q = reel.querySelector('.q'), ans = reel.querySelector('.flash-answer');
+      q.addEventListener('click', () => { if (ans.classList.contains('show')) return; ans.classList.add('show'); recordReel(true); });
+    } else {
+      const opts = (c.options || []).map((o, idx) => '<button class="opt" data-i="' + idx + '">' + esc(o) + '</button>').join('');
+      reel.innerHTML = '<div class="tag">' + esc(c.topic || 'Question') + '</div><div class="q">' + esc(c.question) + '</div><div class="opts">' + opts + '</div><div class="explain"></div><div class="swipe">Swipe up for next</div>';
+      const explain = reel.querySelector('.explain'), ai = typeof c.answerIndex === 'number' ? c.answerIndex : 0;
+      reel.querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => {
+        const chosen = +b.dataset.i;
+        reel.querySelectorAll('.opt').forEach(x => { x.disabled = true; if (+x.dataset.i === ai) x.classList.add('correct'); });
+        const ok = chosen === ai;
+        if (!ok) b.classList.add('wrong');
+        explain.innerHTML = (ok ? 'Correct! ' : 'Not quite. ') + (c.explanation ? esc(c.explanation) : '');
+        explain.classList.add('show');
+        recordReel(ok);
+      }));
     }
-  ];
-
-  stats.forEach((stat) => {
-    const card = document.createElement("article");
-    card.className = "panel stat-card";
-    card.innerHTML = `
-      <span class="section-label">${escapeHtml(stat.label)}</span>
-      <strong>${escapeHtml(stat.value)}</strong>
-      <p>${escapeHtml(stat.detail)}</p>
-    `;
-    statsGrid.appendChild(card);
-  });
-
-  plan.days.forEach((day, index) => {
-    const card = document.createElement("article");
-    card.className = "daily-card";
-    card.innerHTML = `
-      <div class="daily-card-head">
-        <div>
-          <p class="section-label">${escapeHtml(day.label)}</p>
-          <h4>${escapeHtml(day.title)}</h4>
-          <p>${escapeHtml(day.description)}</p>
-        </div>
-        <span class="day-badge">${escapeHtml(day.phaseLabel)}</span>
-      </div>
-      <p><strong>${day.sessionCount}</strong> study block${day.sessionCount === 1 ? "" : "s"} for about <strong>${day.minutes}</strong> minutes total.</p>
-      <ul class="task-list">
-        ${day.tasks
-          .map(
-            (task, taskIndex) => `
-              <li>
-                <input id="day-${index}-task-${taskIndex}" type="checkbox" class="progress-check">
-                <label for="day-${index}-task-${taskIndex}">${escapeHtml(task)}</label>
-              </li>
-            `
-          )
-          .join("")}
-      </ul>
-    `;
-    dailyPlan.appendChild(card);
-  });
-
-  attachProgressListeners(plan.readiness);
-  outputSection.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-function renderApiStatus() {
-  if (appConfig.apiBaseUrl) {
-    apiStatus.textContent = `AI mode is configured. This site will request study plans from ${getHostLabel(appConfig.apiBaseUrl)}.`;
-    return;
-  }
-
-  apiStatus.textContent = "AI mode is not configured yet. Add your backend URL in config.js. Until then, the app will show a local demo plan after a failed AI request.";
-}
-
-function setLoadingState(isLoading) {
-  submitButton.disabled = isLoading;
-  submitButton.textContent = isLoading ? "Generating with AI..." : "Generate AI study plan";
-}
-
-function setFormStatus(message, tone) {
-  formStatus.textContent = message;
-  formStatus.className = `status-message status-${tone}`;
-}
-
-function getFriendlyErrorMessage(error) {
-  const message = sanitizeText(error?.message || "Unknown error.");
-
-  if (message.includes("not configured")) {
-    return "AI backend isn't connected yet. Add the backend URL in config.js. Showing the local demo plan for now.";
-  }
-
-  if (message.includes("OPENAI_API_KEY")) {
-    return "The AI backend is running, but it is missing its OpenAI API key. Showing the local demo plan for now.";
-  }
-
-  if (message.includes("Failed to fetch")) {
-    return "The AI backend could not be reached from the browser. Check the backend URL and CORS settings. Showing the local demo plan for now.";
-  }
-
-  return `AI request failed: ${message} Showing the local demo plan for now.`;
-}
-
-function attachProgressListeners(readiness) {
-  const checkboxes = Array.from(document.querySelectorAll(".progress-check"));
-  updateProgress(checkboxes, readiness);
-
-  checkboxes.forEach((checkbox) => {
-    checkbox.addEventListener("change", () => updateProgress(checkboxes, readiness));
+    track.appendChild(reel);
   });
 }
-
-function updateProgress(checkboxes, readiness) {
-  if (!checkboxes.length) {
-    return;
-  }
-
-  const completedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
-  const completion = Math.round((completedCount / checkboxes.length) * 100);
-  progressValue.textContent = `${completion}%`;
-  progressFill.style.width = `${completion}%`;
-
-  if (completion === 0) {
-    feedbackText.textContent = "Start with the first task. Momentum matters more than perfection.";
-  } else if (completion < 40) {
-    feedbackText.textContent = "Nice start. Protect your next study block so the plan becomes a routine.";
-  } else if (completion < 80) {
-    feedbackText.textContent = `You're building consistency. ${readiness.supportiveNudge}`;
-  } else {
-    feedbackText.textContent = "Strong follow-through. Finish the last tasks and do one quick self-check before the deadline.";
-  }
+function recordReel(correct) {
+  state.reels_answered = (state.reels_answered || 0) + 1;
+  if (correct) state.reels_correct = (state.reels_correct || 0) + 1;
+  const t = todayStr();
+  state.daily[t] = (state.daily[t] || 0) + 1;
+  save();
 }
 
-function buildFallbackStudyPlan(studentData) {
-  const daysUntilDue = getDaysUntil(studentData.dueDate);
-  const visibleDays = Math.min(Math.max(daysUntilDue, 1), 7);
-  const studyDaysPerWeek = clamp(
-    Math.round(studentData.weeklyHours <= 4 ? 4 : studentData.weeklyHours <= 8 ? 5 : 6),
-    3,
-    6
-  );
-  const weeklyMinutes = studentData.weeklyHours * 60;
-  const minutesPerStudyDay = roundToNearestFive(weeklyMinutes / studyDaysPerWeek);
-  const sessionsPerStudyDay = clamp(Math.round(minutesPerStudyDay / studentData.sessionLength), 1, 4);
-  const readiness = evaluateReadiness(studentData, daysUntilDue);
-  const days = [];
-
-  for (let index = 0; index < visibleDays; index += 1) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + index);
-
-    const phase = getPhase(index, visibleDays, daysUntilDue);
-    const topic = studentData.subjects[index % studentData.subjects.length];
-    const isRecoveryDay = visibleDays >= 5 && index === visibleDays - 2;
-    const sessionCount = isRecoveryDay ? Math.max(1, sessionsPerStudyDay - 1) : sessionsPerStudyDay;
-    const minutes = isRecoveryDay
-      ? Math.max(studentData.sessionLength, roundToNearestFive(minutesPerStudyDay * 0.7))
-      : minutesPerStudyDay;
-    const tasks = buildTasks({
-      gradeLevel: studentData.gradeLevel,
-      goal: studentData.goal,
-      phase,
-      topic,
-      distraction: studentData.distraction,
-      confidence: studentData.confidence,
-      isRecoveryDay
-    });
-
-    days.push({
-      label: formatPlanDate(date),
-      title: isRecoveryDay ? `Light review for ${topic}` : `${phase.title} for ${topic}`,
-      phaseLabel: isRecoveryDay ? "Recovery block" : phase.badge,
-      description: isRecoveryDay
-        ? "Keep the habit alive without burning out. Use shorter blocks and leave with one clear win."
-        : phase.description,
-      sessionCount,
-      minutes,
-      tasks
-    });
+let chart = null;
+function renderProgress() {
+  document.getElementById('stStreak').textContent = state.streak || 0;
+  document.getElementById('stPlans').textContent = state.plans_made || 0;
+  document.getElementById('stReels').textContent = state.reels_answered || 0;
+  const acc = state.reels_answered ? Math.round(100 * state.reels_correct / state.reels_answered) : null;
+  document.getElementById('stAcc').textContent = acc == null ? '-' : acc + '%';
+  const labels = [], data = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 864e5), key = d.toISOString().slice(0, 10);
+    labels.push(d.toLocaleDateString(undefined, { weekday: 'short' }));
+    data.push(state.daily[key] || 0);
   }
-
-  return {
-    daysUntilDue,
-    visibleDays,
-    studyDaysPerWeek,
-    weeklyMinutes,
-    minutesPerStudyDay,
-    sessionsPerStudyDay,
-    readiness,
-    days,
-    focusTip: getFocusTip(studentData.distraction, studentData.sessionLength),
-    coachNote: getCoachNote(studentData, readiness),
-    planSummary: buildSummary(studentData, daysUntilDue, sessionsPerStudyDay, visibleDays)
-  };
+  const ctx = document.getElementById('actChart');
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, { type: 'bar', data: { labels, datasets: [{ label: 'Reels', data, backgroundColor: '#3a7d4d', borderRadius: 8, maxBarThickness: 44 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: '#5f7059' }, grid: { color: '#d3dac8' } }, x: { ticks: { color: '#5f7059' }, grid: { display: false } } } } });
 }
-
-function buildTasks({ gradeLevel, goal, phase, topic, distraction, confidence, isRecoveryDay }) {
-  if (isRecoveryDay) {
-    return [
-      `Do a 10-minute recall sprint on ${topic} without looking at notes.`,
-      "Review mistakes from earlier sessions and circle the one concept that still feels shaky.",
-      getDistractionTask(distraction)
-    ];
-  }
-
-  const tasks = [
-    phase.opening.replace("{topic}", topic),
-    phase.core.replace("{topic}", topic),
-    phase.close.replace("{goal}", goal).replace("{topic}", topic)
-  ];
-
-  if (confidence <= 2) {
-    tasks.push(`Spend 5 extra minutes rewriting the hardest ${topic} idea in your own words.`);
-  }
-
-  if (gradeLevel === "middle-school") {
-    tasks.push("End by telling a parent, friend, or empty room the main idea in simple words.");
-  } else {
-    tasks.push("Finish with a 2-minute self-rating: what feels solid, confusing, or unfinished?");
-  }
-
-  tasks.push(getDistractionTask(distraction));
-  return tasks;
-}
-
-function getPhase(index, totalDays, daysUntilDue) {
-  const progress = totalDays === 1 ? 1 : index / (totalDays - 1);
-
-  if (daysUntilDue <= 2 || progress > 0.72) {
-    return {
-      title: "Review and test yourself",
-      badge: "Review phase",
-      description: "Shift from rereading to checking what you can do without help.",
-      opening: "Spend 5 minutes listing everything you remember about {topic}.",
-      core: "Do a timed practice round on {topic} and mark every mistake.",
-      close: "Wrap up by writing one short answer about how today's work supports: {goal}"
-    };
-  }
-
-  if (progress > 0.38) {
-    return {
-      title: "Practice and apply",
-      badge: "Practice phase",
-      description: "Use examples, problems, or questions so the material sticks.",
-      opening: "Preview yesterday's notes for {topic} and highlight the weakest part.",
-      core: "Work through active practice on {topic} instead of just rereading.",
-      close: "Write an exit ticket for {topic}: what was easy, what still needs work, and why it matters for {goal}"
-    };
-  }
-
-  return {
-    title: "Learn the basics",
-    badge: "Foundation phase",
-    description: "Build clear notes, definitions, and examples before moving into speed.",
-    opening: "Skim class material for {topic} and pull out the top three ideas.",
-    core: "Create a summary, flashcards, or guided notes for {topic}.",
-    close: "Check understanding by explaining {topic} out loud and tying it back to {goal}"
-  };
-}
-
-function evaluateReadiness(studentData, daysUntilDue) {
-  const topicLoad = studentData.subjects.length;
-  const weeklyCapacity = studentData.weeklyHours * Math.max(daysUntilDue, 1) / 7;
-  const pressureScore =
-    topicLoad * 1.4 +
-    (6 - studentData.confidence) +
-    (studentData.distraction === "motivation" ? 1.2 : 0.7);
-
-  if (weeklyCapacity < pressureScore) {
-    return {
-      label: "Tight",
-      detail: "There is enough time to make progress, but the app is recommending short, focused sessions every day.",
-      supportiveNudge: "Stay with the plan even if each session is short."
-    };
-  }
-
-  if (weeklyCapacity < pressureScore + 3) {
-    return {
-      label: "Balanced",
-      detail: "Your time and topic load are fairly matched if you stay consistent.",
-      supportiveNudge: "Keep using active recall so your minutes count."
-    };
-  }
-
-  return {
-    label: "Strong",
-    detail: "You have enough time to study with review built in before the deadline.",
-    supportiveNudge: "Use the extra time to quiz yourself, not just reread."
-  };
-}
-
-function getFocusTip(distraction, sessionLength) {
-  const tips = {
-    phone: `Put your phone in another room before each ${sessionLength}-minute block and check it only during the break.`,
-    noise: `Use one predictable sound environment for every ${sessionLength}-minute session so your brain starts faster.`,
-    motivation: `Shrink the first step. Promise yourself just five minutes, then let the timer carry you into the full ${sessionLength}-minute block.`,
-    multitasking: "Keep one tab, one notebook, and one goal visible. Hidden tabs become surprise distractions."
-  };
-
-  return tips[distraction];
-}
-
-function getCoachNote(studentData, readiness) {
-  if (studentData.confidence <= 2) {
-    return `Confidence is low right now, so this plan leans on smaller wins. ${readiness.supportiveNudge}`;
-  }
-
-  if (studentData.gradeLevel === "middle-school") {
-    return "The plan uses shorter explanations and verbal check-ins so studying feels less overwhelming.";
-  }
-
-  return "The plan assumes the student can handle independent work, but still needs structure to avoid procrastination.";
-}
-
-function buildSummary(studentData, daysUntilDue, sessionsPerStudyDay, visibleDays) {
-  const subjectLine = studentData.subjects.join(", ");
-  return `Built for ${studentData.studentName} with ${sessionsPerStudyDay} focus block${sessionsPerStudyDay === 1 ? "" : "s"} per study day across the next ${visibleDays} day${visibleDays === 1 ? "" : "s"}. Deadline: ${daysUntilDue} day${daysUntilDue === 1 ? "" : "s"} away. Topics: ${subjectLine}.`;
-}
-
-function getDistractionTask(distraction) {
-  const prompts = {
-    phone: "Place your phone out of reach before starting this block.",
-    noise: "Choose your quietest available spot and use headphones if possible.",
-    motivation: "Start with the easiest question first so the session has a quick win.",
-    multitasking: "Close every unrelated tab before you begin the next task."
-  };
-
-  return prompts[distraction];
-}
-
-function splitTopics(rawValue) {
-  return String(rawValue)
-    .split(/[,\n]/)
-    .map((item) => sanitizeText(item))
-    .filter(Boolean);
-}
-
-function sanitizeText(value) {
-  return String(value || "").trim().replace(/\s+/g, " ");
-}
-
-function sanitizeEndpoint(value) {
-  return sanitizeText(value).replace(/\/+$/, "");
-}
-
-function getHostLabel(url) {
+document.getElementById('genFeedback').addEventListener('click', async () => {
+  const btn = document.getElementById('genFeedback'), box = document.getElementById('feedbackText');
+  const acc = state.reels_answered ? Math.round(100 * state.reels_correct / state.reels_answered) : 0;
+  btn.disabled = true; const old = btn.textContent; btn.innerHTML = '<span class="spinner"></span> Thinking...';
+  box.textContent = '';
+  const prompt = 'You are Lock In encouraging but honest AI study coach. Give ' + (state.name || 'the student') + ' short personal feedback (3-4 sentences, warm, no bullet lists). Note one win and one concrete next step to reduce procrastination, tuned to their profile.\nCLASSES: ' + classContext() + '. PROFILE: ' + prefsContext() + '\nSTATS - streak: ' + (state.streak || 0) + ' days, plans made: ' + (state.plans_made || 0) + ', reels answered: ' + (state.reels_answered || 0) + ', accuracy: ' + acc + '%.';
   try {
-    return new URL(url).host;
-  } catch (error) {
-    return url;
+    const txt = await askAI(prompt);
+    box.textContent = (txt || '').trim() || 'Keep going - consistency beats intensity.';
+  } catch (e) {
+    box.textContent = e.message;
+  } finally {
+    btn.disabled = false; btn.innerHTML = old;
   }
-}
-
-function getDaysUntil(dueDate) {
-  const msPerDay = 1000 * 60 * 60 * 24;
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const difference = dueDate.getTime() - todayStart.getTime();
-  return Math.max(1, Math.ceil(difference / msPerDay));
-}
-
-function roundToNearestFive(value) {
-  return Math.max(25, Math.round(value / 5) * 5);
-}
-
-function clamp(value, min, max) {
-  return Math.min(Math.max(value, min), max);
-}
-
-function toDateInputValue(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function formatPlanDate(date) {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric"
-  }).format(date);
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
+});

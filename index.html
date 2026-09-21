@@ -1,193 +1,122 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Lock-In Study Planner</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lock In — Unlock Your Best Self</title>
+<link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js"></script>
 </head>
 <body>
-  <div class="page-shell">
-    <header class="hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Lock-In</p>
-        <h1>Turn scattered study time into a plan students can actually follow.</h1>
-        <p class="hero-text">
-          This starter web app generates AI-powered study plans using short focus blocks,
-          clear goals, and quick feedback that helps students stay on track.
-        </p>
-        <div class="hero-chips">
-          <span>AI-generated plans</span>
-          <span>Timed sessions</span>
-          <span>Personalized schedule</span>
-          <span>Progress feedback</span>
-        </div>
-      </div>
-
-      <section class="panel form-panel" aria-labelledby="planner-title">
-        <div class="panel-heading">
-          <p class="section-label">Study Planner</p>
-          <h2 id="planner-title">Build an AI study plan</h2>
-          <p id="api-status" class="support-text compact-text">
-            Checking AI configuration...
-          </p>
-        </div>
-
-        <form id="study-form" class="planner-form">
-          <label>
-            Student name
-            <input id="student-name" name="studentName" type="text" placeholder="Jordan">
-          </label>
-
-          <label>
-            Grade level
-            <select id="grade-level" name="gradeLevel">
-              <option value="middle-school">Middle school</option>
-              <option value="high-school" selected>High school</option>
-            </select>
-          </label>
-
-          <label>
-            Subjects or topics
-            <textarea
-              id="subjects"
-              name="subjects"
-              rows="3"
-              placeholder="Biology, algebra, history chapter 4"
-              required
-            ></textarea>
-          </label>
-
-          <label>
-            Main goal
-            <textarea
-              id="goal"
-              name="goal"
-              rows="2"
-              placeholder="Prepare for a quiz next Friday and stop cramming the night before."
-              required
-            ></textarea>
-          </label>
-
-          <div class="form-grid">
-            <label>
-              Study hours per week
-              <input id="weekly-hours" name="weeklyHours" type="number" min="1" max="30" value="6" required>
-            </label>
-
-            <label>
-              Preferred focus block
-              <select id="session-length" name="sessionLength">
-                <option value="25">25 min focus / 5 min break</option>
-                <option value="40" selected>40 min focus / 10 min break</option>
-                <option value="50">50 min focus / 10 min break</option>
-              </select>
-            </label>
-          </div>
-
-          <div class="form-grid">
-            <label>
-              Due date
-              <input id="due-date" name="dueDate" type="date" required>
-            </label>
-
-            <label>
-              Confidence level
-              <select id="confidence" name="confidence">
-                <option value="1">Very low</option>
-                <option value="2">Low</option>
-                <option value="3" selected>Medium</option>
-                <option value="4">High</option>
-                <option value="5">Very high</option>
-              </select>
-            </label>
-          </div>
-
-          <label>
-            Biggest distraction right now
-            <select id="distraction" name="distraction">
-              <option value="phone" selected>Phone or social media</option>
-              <option value="noise">Noise or interruptions</option>
-              <option value="motivation">Hard to get started</option>
-              <option value="multitasking">Too many tabs and tasks</option>
-            </select>
-          </label>
-
-          <p id="form-status" class="status-message status-neutral" aria-live="polite">
-            The app will use AI when a backend endpoint is configured.
-          </p>
-
-          <button id="submit-button" class="primary-button" type="submit">Generate AI study plan</button>
-        </form>
-      </section>
-    </header>
-
-    <main class="content">
-      <section class="feature-strip" aria-label="Study plan features">
-        <article class="panel mini-panel">
-          <p class="section-label">Step 1</p>
-          <h3>Collect the right details</h3>
-          <p>The app asks for a goal, deadline, subjects, confidence, and time budget.</p>
-        </article>
-        <article class="panel mini-panel">
-          <p class="section-label">Step 2</p>
-          <h3>Generate a realistic rhythm</h3>
-          <p>The AI turns goals, deadlines, and distractions into active-recall tasks and timed blocks.</p>
-        </article>
-        <article class="panel mini-panel">
-          <p class="section-label">Step 3</p>
-          <h3>Give instant feedback</h3>
-          <p>Progress updates shift as students complete daily checkpoints in the plan.</p>
-        </article>
-      </section>
-
-      <section id="plan-output" class="plan-output hidden" aria-live="polite">
-        <div class="panel output-header">
-          <div>
-            <p class="section-label">Personalized Plan</p>
-            <h2 id="plan-title">Your study plan</h2>
-            <p id="plan-summary" class="support-text"></p>
-            <p id="generation-source" class="source-pill hidden"></p>
-          </div>
-          <div class="progress-box">
-            <div class="progress-copy">
-              <span>Plan progress</span>
-              <strong id="progress-value">0%</strong>
-            </div>
-            <div class="progress-bar" aria-hidden="true">
-              <div id="progress-fill" class="progress-fill"></div>
-            </div>
-            <p id="feedback-text" class="support-text">Complete a day to unlock feedback.</p>
-          </div>
-        </div>
-
-        <section class="stats-grid" id="stats-grid"></section>
-
-        <section class="panel">
-          <div class="panel-heading">
-            <p class="section-label">Schedule</p>
-            <h3>Daily study plan</h3>
-          </div>
-          <div id="daily-plan" class="daily-plan"></div>
-        </section>
-
-        <section class="tips-grid">
-          <article class="panel">
-            <p class="section-label">Focus Strategy</p>
-            <h3>Lock-in tip</h3>
-            <p id="focus-tip" class="support-text"></p>
-          </article>
-          <article class="panel">
-            <p class="section-label">Coach Notes</p>
-            <h3>Feedback snapshot</h3>
-            <p id="coach-note" class="support-text"></p>
-          </article>
-        </section>
-      </section>
-    </main>
+<div id="gate">
+  <div class="authcard">
+    <div class="authhead">
+      <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M32 8 L58 20 L32 32 L6 20 Z" fill="#173d22"/><path d="M52 24 v10" stroke="#173d22" stroke-width="2.5" stroke-linecap="round"/><circle cx="52" cy="37" r="3" fill="#173d22"/><path d="M22 30 h20 v14 l-10 12 -10 -12 Z" fill="#f4f6ee" stroke="#173d22" stroke-width="2.5"/><path d="M22 44 h20 l-10 12 Z" fill="#173d22"/><path d="M28 30 v11 M32 30 v13 M36 30 v11" stroke="#173d22" stroke-width="2"/></svg>
+      <h1>Lock In</h1><p>Unlock your best self.</p>
+    </div>
+    <div id="configWarn"></div>
+    <div class="authtabs" id="authtabs"><button data-mode="login" class="active">Log in</button><button data-mode="signup">Sign up</button></div>
+    <label>Email</label><input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email">
+    <label>Password</label><input id="authPass" type="password" placeholder="At least 6 characters" autocomplete="current-password">
+    <button class="btn block" id="authBtn">Log in</button>
+    <div id="authMsg"></div>
   </div>
-
-  <script src="config.js"></script>
-  <script src="script.js"></script>
+</div>
+<div id="onboard">
+  <div class="card">
+    <div class="progress"><div class="seg on"></div><div class="seg"></div><div class="seg"></div></div>
+    <div class="stepnum" id="stepLabel">Step 1 of 3 &middot; About you</div>
+    <div class="wstep active" data-step="1">
+      <h2 style="color:var(--green);margin:6px 0 2px">Welcome to Lock In</h2>
+      <p class="sub" style="color:var(--muted)">Let's build your profile so everything is personalized to you.</p>
+      <label>What's your name?</label><input id="oName" placeholder="e.g. Alex">
+      <label>What grade level are you?</label>
+      <div class="opts-wrap" id="oLevel" data-single="Middle school|High school|College|Other"></div>
+      <div class="wnav"><button class="btn" id="s1next">Next</button></div>
+    </div>
+    <div class="wstep" data-step="2">
+      <h2 style="color:var(--green);margin:6px 0 2px">Your classes</h2>
+      <p class="sub" style="color:var(--muted)">Add the classes you're taking right now. Include how hard each feels and any upcoming test.</p>
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:2"><label>Class name</label><input id="cName" placeholder="e.g. AP Biology"></div>
+        <div style="flex:1"><label>Difficulty</label><select id="cDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
+      </div>
+      <label>Next test / big deadline (optional)</label><input id="cDate" type="date">
+      <button class="btn ghost sm" id="addClass" style="margin-top:12px">+ Add class</button>
+      <div class="classlist" id="classList"></div><div id="classErr"></div>
+      <div class="wnav"><button class="btn ghost" id="s2back">Back</button><button class="btn" id="s2next">Next</button></div>
+    </div>
+    <div class="wstep" data-step="3">
+      <h2 style="color:var(--green);margin:6px 0 2px">How you study</h2>
+      <p class="sub" style="color:var(--muted)">A few quick questions so your plans and reels fit the way you learn.</p>
+      <label>When do you focus best?</label>
+      <div class="opts-wrap" id="qFocus" data-single="Early morning|Afternoon|Evening|Late night"></div>
+      <label>How long can you focus before getting distracted?</label>
+      <div class="opts-wrap" id="qAttention" data-single="~15 min|~25 min|~45 min|60+ min"></div>
+      <label>Which study methods do you like? (pick any)</label>
+      <div class="opts-wrap" id="qMethods" data-multi="Flashcards|Practice problems|Watching videos|Rereading notes|Teaching someone|Mind maps|Quizzing myself|Group study"></div>
+      <label>What's your biggest distraction?</label>
+      <div class="opts-wrap" id="qDistraction" data-single="Phone / social media|Video games|Feeling tired|Other people|Feeling overwhelmed|Boredom"></div>
+      <label>What motivates you most?</label>
+      <div class="opts-wrap" id="qMotivation" data-single="Good grades|Streaks & progress|Rewards|Competition|Understanding deeply"></div>
+      <label>Preferred study session length</label>
+      <div class="opts-wrap" id="qSession" data-single="Short (20-30 min)|Medium (45-60 min)|Long (90+ min)"></div>
+      <label>Your main goal right now (optional)</label><input id="qGoal" placeholder="e.g. Raise my Biology grade to an A before finals">
+      <div id="obErr"></div>
+      <div class="wnav"><button class="btn ghost" id="s3back">Back</button><button class="btn" id="finishOb">Finish setup</button></div>
+    </div>
+  </div>
+</div>
+<div id="app"><div class="wrap">
+  <div class="topbar">
+    <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M32 8 L58 20 L32 32 L6 20 Z" fill="#173d22"/><path d="M52 24 v10" stroke="#173d22" stroke-width="2.5" stroke-linecap="round"/><circle cx="52" cy="37" r="3" fill="#173d22"/><path d="M22 30 h20 v14 l-10 12 -10 -12 Z" fill="#f4f6ee" stroke="#173d22" stroke-width="2.5"/><path d="M22 44 h20 l-10 12 Z" fill="#173d22"/><path d="M28 30 v11 M32 30 v13 M36 30 v11" stroke="#173d22" stroke-width="2"/></svg>
+    <div class="brand"><h1>Lock In</h1><p>Unlock your best self.</p></div>
+    <div class="userbox"><div class="streakpill">&#128293; <span id="streakNum">0</span></div><span class="usermail" id="userMail"></span><button class="logout" id="logoutBtn">Log out</button></div>
+  </div>
+  <div class="tabs"><button class="tab active" data-tab="home">Home</button><button class="tab" data-tab="plan">Study Plan</button><button class="tab" data-tab="reels">Reels</button><button class="tab" data-tab="progress">Progress</button></div>
+  <section class="panel active" id="home">
+    <div class="hero"><h2 id="greeting">Ready to lock in?</h2><p>Your AI study coach that turns "I'll do it later" into done.</p><p id="heroStatus"></p><div class="quote">"Lock in. Unlock your best self."</div></div>
+    <div class="card"><h2>Your classes</h2><p class="sub">Everything personalizes around these. Manage them anytime.</p>
+      <div class="classlist" id="homeClassList"></div>
+      <div class="row" style="align-items:flex-end;margin-top:8px">
+        <div style="flex:2"><label>Add a class</label><input id="hcName" placeholder="e.g. Chemistry"></div>
+        <div style="flex:1"><label>Difficulty</label><select id="hcDiff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></div>
+        <div style="flex:0 0 auto"><button class="btn sm" id="hAddClass">+ Add</button></div>
+      </div>
+    </div>
+    <div class="card"><h2>Your study profile</h2><p class="sub">From your setup answers. <a href="#" id="editSetup" style="color:var(--green);font-weight:700">Retake setup</a></p><div class="summaryGrid" id="profileSummary"></div></div>
+    <div class="features">
+      <div class="feat" data-go="plan"><div class="ic">&#128197;</div><h3>AI Study Plan</h3><p>A personalized day-by-day plan built around your classes and how you study.</p></div>
+      <div class="feat" data-go="reels"><div class="ic">&#128241;</div><h3>Lock In Reels</h3><p>Scroll study questions like a feed - learning that feels like TikTok.</p></div>
+      <div class="feat" data-go="progress"><div class="ic">&#128200;</div><h3>Progress & Feedback</h3><p>Track streaks and get AI coaching on how to improve.</p></div>
+    </div>
+  </section>
+  <section class="panel" id="plan">
+    <div class="card"><h2>AI Study Plan Generator</h2><p class="sub">Choose which classes to focus on. Lock In builds a plan around your deadlines and study style.</p>
+      <label>Which classes should this plan cover?</label><div id="planClassPick"></div>
+      <div class="row"><div><label>Plan length</label><select id="planDays"><option value="3">Next 3 days</option><option value="5" selected>Next 5 days</option><option value="7">Next 7 days</option></select></div>
+        <div><label>Study time per day</label><select id="planHours"><option>1 hour</option><option selected>2 hours</option><option>3 hours</option><option>4+ hours</option></select></div></div>
+      <label>Anything else coming up? (optional)</label><textarea id="planDeadlines" rows="2" placeholder="e.g. group project due Monday, SAT in 3 weeks"></textarea>
+      <button class="btn block" id="genPlan">Generate my plan</button><div id="planErr"></div>
+    </div>
+    <div id="planOut"></div>
+  </section>
+  <section class="panel" id="reels">
+    <div class="card"><h2>Lock In Reels</h2><p class="sub">Pick a class (or type a topic) and get an AI question feed - swipe up for the next.</p>
+      <label>Focus this session on...</label><div class="opts-wrap" id="reelClassPick"></div>
+      <label style="margin-top:14px">Or type a specific topic</label><input id="reelTopic" placeholder="e.g. Photosynthesis, WWII causes, quadratics">
+      <button class="btn block" id="genReels">Start reels</button><div id="reelErr"></div>
+    </div>
+    <div id="reelViewport" style="display:none"><div id="reelTrack"></div></div>
+  </section>
+  <section class="panel" id="progress">
+    <div class="stats"><div class="stat"><div class="n" id="stStreak">0</div><div class="l">Day streak</div></div><div class="stat"><div class="n" id="stPlans">0</div><div class="l">Plans made</div></div><div class="stat"><div class="n" id="stReels">0</div><div class="l">Reels answered</div></div><div class="stat"><div class="n" id="stAcc">-</div><div class="l">Reel accuracy</div></div></div>
+    <div class="card"><h2>Activity this week</h2><p class="sub">Reels answered per day.</p><div class="chart-box"><canvas id="actChart"></canvas></div></div>
+    <div class="feedback"><h2>AI Coach feedback</h2><p class="sub">Personalized insight based on your profile and activity.</p><div id="feedbackText" style="margin-top:12px">Answer a few reels or make a plan, then tap below.</div><button class="btn ghost block" id="genFeedback" style="border-color:#fff;color:#fff;margin-top:16px">Get my feedback</button></div>
+  </section>
+</div></div>
+<script src="config.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
